@@ -14,29 +14,29 @@ function [configs,prefs]=initUserSettings()
 disp(['Loading user configuration settings and processing preferences from '...
     'file initUserSettings.m...'])
 %% USER CONFIGURATION SETTINGS
-% Base function directory (i.e. the one containing MAIN_FILES_TO_EDIT/, 
+% Base function directory (i.e. the one containing MAIN_FILES_TO_EDIT/,
 % MAIN_FUNCTIONS_TO_RUN/, saved_data_ROIs/, and subfunctions_otherFiles/)
-baseFcnDir='/Users/dk384/Documents/Laboratory/MGH_Farrar-Rosen/MATLAB/Image_processing/Bruker_CEST-MRF_processing';
+baseFcnDir='/home/user/BrukerCESTmethod_processingPipeline/Bruker_CEST-MRF_processing/MATLAB_MAIN-CODE-TO-RUN';
 
 % Directories for loading/saving images and ROIs
-configs.load_dir='/Users/dk384/Documents/Laboratory/MGH_Farrar-Rosen/Data';
+configs.load_dir='/home/user/BrukerCESTmethod_processingPipeline/Data'; % UPDATE THIS to your actual data directory
 configs.save_dir=fullfile(baseFcnDir,'saved_data_ROIs'); %shouldn't need to change
 
 % Directory for calling dcm2niix (for T1 + T2 maps):
-configs.ext_dir=fullfile(baseFcnDir,'subfunctions_otherFiles','external'); 
+configs.ext_dir=fullfile(baseFcnDir,'subfunctions_otherFiles','external');
     %shouldn't need to change
 
 % Info for calling Python scripts to do dictionary matching
-configs.py_dir='/Users/dk384/Documents/Laboratory/MGH_Farrar-Rosen/Python/molecular-mrf-main/dk_forDotProdMatch';
+configs.py_dir='/home/user/BrukerCESTmethod_processingPipeline/Bruker_CEST-MRF_processing/Python';
     %path to directory containing Python code for dictionary matching, etc.
 configs.py_file='MRFmatch_B-SL_dk.py'; %name of file to run
 configs.conda_env='mrfmatch'; %name of conda environment to activate
     %(NOTE: currently I need to activate this along with conda to get the
     %Python script to work!
-configs.py_env='dkpymrf'; %name of python environment to activate  
+configs.py_env='dkpymrf'; %name of python environment to activate
 
-configs.bashfn='.zshrc'; %system file in home directory containing conda alias 
-    %(e.g. .zshrc)
+configs.bashfn='.bashrc'; %system file in home directory containing conda alias
+    %(e.g. .bashrc for Linux, .zshrc for Mac)
 
 % Name of file to search for and load for MRF, which contains parameters
 % maps outputted from Python scripts (make sure it ends with .mat)
