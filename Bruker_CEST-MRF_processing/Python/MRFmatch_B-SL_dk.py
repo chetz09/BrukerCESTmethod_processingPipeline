@@ -20,13 +20,20 @@ class Config:
         return self.cfg
 
 class ConfigDK(Config):
-    def __init__(self):
+    def __init__(self, input_file=None, output_prefix=None):
         config = {}
-        config['yaml_fn'] = 'OUTPUT_FILES/scenario.yaml'
-        config['seq_fn'] = 'OUTPUT_FILES/acq_protocol.seq'
-        config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
-        config['acqdata_fn'] = 'INPUT_FILES/acquired_data.mat'
-        config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
+
+        # Allow custom input file and output prefix via command line
+        if input_file is None:
+            input_file = 'INPUT_FILES/acquired_data.mat'
+        if output_prefix is None:
+            output_prefix = 'OUTPUT_FILES'
+
+        config['acqdata_fn'] = input_file
+        config['yaml_fn'] = f'{output_prefix}/scenario.yaml'
+        config['seq_fn'] = f'{output_prefix}/acq_protocol.seq'
+        config['dict_fn'] = f'{output_prefix}/dict.mat'
+        config['quantmaps_fn'] = f'{output_prefix}/quant_maps.mat'
 
         # Modified by DK to pull in dictpars from acquired_data.mat
         dp = {}
