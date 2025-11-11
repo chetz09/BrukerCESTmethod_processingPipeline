@@ -98,7 +98,7 @@ class ConfigDK(Config):
         # Fill additional info
         config['verbose'] = 0
         config['max_pulse_samples'] = 100
-        config['num_workers'] = 18
+        config['num_workers'] = int(os.environ.get('SLURM_CPUS_PER_TASK', 4))
 
         self.cfg = config
 
