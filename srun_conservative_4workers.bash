@@ -7,18 +7,19 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gpus=1
-#SBATCH --mem=350G
+#SBATCH --mem=900G
 #SBATCH --time=18:00:00
 #SBATCH --output=/autofs/homes/001/cd1052/molecular-mrf-main/molecular-mrf-main/slurm-%j.out
 #SBATCH --error=/autofs/homes/001/cd1052/molecular-mrf-main/molecular-mrf-main/slurm-%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=cd1052
 
-# CONSERVATIVE 4 WORKERS
+# CONSERVATIVE 4 WORKERS WITH HIGH MEMORY
 # Previous run: 1400GB with 18 workers = OOM killed
-# Strategy: Reduce workers to 4 = 4.5x reduction
-# Memory estimate: 1400GB / 4.5 ≈ 311GB, requesting 350GB for safety
-# Balance between speed and memory usage
+# Previous run: 900GB with 16 workers = OOM killed
+# Strategy: Reduce workers to 4 = 4x reduction
+# Memory estimate: ~225-300GB needed, requesting 900GB for large safety margin
+# Balance between speed and guaranteed completion
 
 echo "========================================="
 echo "CONSERVATIVE MODE: 4 WORKERS"
@@ -28,7 +29,7 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Partition: $SLURM_JOB_PARTITION"
 echo "Node: $(hostname)"
 echo "CPUs: $SLURM_CPUS_PER_TASK"
-echo "Memory: 350G"
+echo "Memory: 900G"
 echo "GPU: $CUDA_VISIBLE_DEVICES"
 echo "========================================="
 echo ""
