@@ -13,8 +13,8 @@ num_rois = length(roi);
 % ROI names
 roi_names = {'GA\_BSA\_5mM', 'GA\_BSA\_10mM', 'GA\_BSA\_20mM', 'GA\_BSA\_30mM', 'GA\_30mM'};
 
-%% Figure 1: Z-Spectra with fitted peaks AND MTR asymmetry on same plot
-figure('Name', 'Z-Spectra with Peak Fits and MTR');
+%% Figure 1: Z-Spectra with fitted peaks
+figure('Name', 'Z-Spectra with Peak Fits');
 hold on;
 
 for i = 1:num_rois
@@ -48,29 +48,9 @@ for i = 1:num_rois
     end
 end
 
-% Add MTR asymmetry to the same plot
-if isfield(img.zSpec, 'MTRimg') && ~isempty(img.zSpec.MTRimg)
-    % Get MTR ppm values if available
-    if isfield(img.zSpec, 'MTRppm') && ~isempty(img.zSpec.MTRppm)
-        mtr_ppm = img.zSpec.MTRppm;
-    else
-        % If MTRppm not available, assume it's positive ppm only
-        mtr_ppm = img.zSpec.ppm(img.zSpec.ppm >= 0);
-    end
-
-    for i = 1:num_rois
-        mtr_in_roi = img.zSpec.MTRimg(roi(i).mask);
-        mtr_value = mean(mtr_in_roi, 'omitnan');
-
-        % Plot MTR as horizontal line at the MTR value
-        plot(mtr_ppm, ones(size(mtr_ppm)) * mtr_value, '--', 'LineWidth', 2, 'Color', colors(i,:), ...
-             'DisplayName', sprintf('%s - MTR', roi_names{i}));
-    end
-end
-
 xlabel('Offset (ppm)', 'FontSize', 12);
-ylabel('Normalized Signal / MTR', 'FontSize', 12);
-title('Z-Spectra with Peak Fits and MTR Asymmetry', 'FontSize', 14);
+ylabel('Normalized Signal', 'FontSize', 12);
+title('Z-Spectra with Peak Fits (Amide, MT, NOE)', 'FontSize', 14);
 legend('Location', 'best', 'FontSize', 8);
 grid on;
 xlim([min(img.zSpec.ppm) max(img.zSpec.ppm)]);
@@ -89,9 +69,15 @@ if isfield(img.zSpec, 'MTRimg') && ~isempty(img.zSpec.MTRimg)
         mtr_std(i) = std(mtr_in_roi, 'omitnan');
     end
 
-    bar(1:num_rois, mtr_values, 'FaceColor', [0.3 0.6 0.8]);
+    % Plot as line graph with error bars
     hold on;
-    errorbar(1:num_rois, mtr_values, mtr_std, 'k.', 'LineWidth', 1.5);
+    for i = 1:num_rois
+        errorbar(i, mtr_values(i), mtr_std(i), 'o', 'MarkerSize', 8, ...
+                 'LineWidth', 2, 'Color', colors(i,:), 'MarkerFaceColor', colors(i,:), ...
+                 'DisplayName', roi_names{i});
+    end
+    plot(1:num_rois, mtr_values, '-', 'LineWidth', 1.5, 'Color', [0.5 0.5 0.5], ...
+         'HandleVisibility', 'off');
     hold off;
 
     xlabel('Sample', 'FontSize', 12);
@@ -99,13 +85,8 @@ if isfield(img.zSpec, 'MTRimg') && ~isempty(img.zSpec.MTRimg)
     title('MTR Asymmetry per Sample', 'FontSize', 14);
     set(gca, 'XTick', 1:num_rois, 'XTickLabel', roi_names);
     xtickangle(45);
+    legend('Location', 'best');
     grid on;
-
-    % Add text labels with values
-    for i = 1:num_rois
-        text(i, mtr_values(i)+mtr_std(i), sprintf('%.3f', mtr_values(i)), ...
-             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 9);
-    end
 else
     text(0.5, 0.5, 'MTR data not available', 'HorizontalAlignment', 'center', ...
          'FontSize', 14, 'Units', 'normalized');
