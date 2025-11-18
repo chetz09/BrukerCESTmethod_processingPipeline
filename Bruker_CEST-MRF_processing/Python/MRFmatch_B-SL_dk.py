@@ -153,7 +153,7 @@ def visualize_and_save_results(quant_maps, mat_fn):
     mask_fn = 'mask.npy'
     np.save(mask_fn, mask)
 
-    fig_fn = 'OUTPUT_FILES/dot_product_results.png'
+    fig_fn = 'OUTPUT_FILES/dot_product_results.eps'
     fig, axes = plt.subplots(1, 3, figsize=(30, 25))
     color_maps = [b_viridis, 'magma', 'magma']
     data_keys = ['fs', 'ksw', 'dp']
@@ -162,9 +162,10 @@ def visualize_and_save_results(quant_maps, mat_fn):
     tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.999, 1.0005, 0.0005)]
 
     for ax, color_map, key, title, clim, ticks in zip(axes.flat, color_maps, data_keys, titles, clim_list, tick_list):
-        # Fix data type issue by using explicit numpy operations
-        scale_factor = 110e3 / 3 if key == 'fs' else 1
-        vals = np.asarray(quant_maps[key]) * scale_factor * np.asarray(mask)
+        # Fix data type issue by ensuring all arrays are float64 for EPS compatibility
+        scale_factor = 110e3 / 3 if key == 'fs' else 1.0
+        # Convert to float64 explicitly - EPS backend requires proper numpy arrays
+        vals = np.asarray(quant_maps[key], dtype=np.float64) * float(scale_factor) * np.asarray(mask, dtype=np.float64)
         plot = ax.imshow(vals, cmap=color_map)
         plot.set_clim(*clim)
         ax.set_title(title, fontsize=25)
@@ -173,9 +174,9 @@ def visualize_and_save_results(quant_maps, mat_fn):
         ax.set_axis_off()
 
     plt.tight_layout()
-    plt.savefig(fig_fn, format="png", dpi=300)
+    plt.savefig(fig_fn, format="eps", dpi=300)
     plt.close()
-    print("Resulting plots saved as PNG")
+    print("Resulting plots saved as EPS")
 
 
 def main():
