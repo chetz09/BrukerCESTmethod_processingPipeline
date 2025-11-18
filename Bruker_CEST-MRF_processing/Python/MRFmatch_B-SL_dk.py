@@ -153,7 +153,7 @@ def visualize_and_save_results(quant_maps, mat_fn):
     mask_fn = 'mask.npy'
     np.save(mask_fn, mask)
 
-    fig_fn = 'OUTPUT_FILES/dot_product_results.eps'
+    fig_fn = 'OUTPUT_FILES/dot_product_results.png'
     fig, axes = plt.subplots(1, 3, figsize=(30, 25))
     color_maps = [b_viridis, 'magma', 'magma']
     data_keys = ['fs', 'ksw', 'dp']
@@ -162,7 +162,9 @@ def visualize_and_save_results(quant_maps, mat_fn):
     tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.999, 1.0005, 0.0005)]
 
     for ax, color_map, key, title, clim, ticks in zip(axes.flat, color_maps, data_keys, titles, clim_list, tick_list):
-        vals = quant_maps[key] * (key == 'fs' and 110e3 / 3 or 1) * mask
+        # Fix data type issue by using explicit numpy operations
+        scale_factor = 110e3 / 3 if key == 'fs' else 1
+        vals = np.asarray(quant_maps[key]) * scale_factor * np.asarray(mask)
         plot = ax.imshow(vals, cmap=color_map)
         plot.set_clim(*clim)
         ax.set_title(title, fontsize=25)
@@ -171,9 +173,9 @@ def visualize_and_save_results(quant_maps, mat_fn):
         ax.set_axis_off()
 
     plt.tight_layout()
-    plt.savefig(fig_fn, format="eps")
+    plt.savefig(fig_fn, format="png", dpi=300)
     plt.close()
-    print("Resulting plots saved as EPS")
+    print("Resulting plots saved as PNG")
 
 
 def main():
