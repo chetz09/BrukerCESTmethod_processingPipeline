@@ -172,14 +172,20 @@ def visualize_and_save_results(quant_maps, mat_fn):
     tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.999, 1.0005, 0.0005)]
 
     for ax, color_map, key, title, clim, ticks in zip(axes.flat, color_maps, data_keys, titles, clim_list, tick_list):
-        # Fix data type issue by ensuring all arrays are float64 for EPS compatibility
+        # Aggressive fix for EPS compatibility - force proper numpy arrays with copy
         scale_factor = 110e3 / 3 if key == 'fs' else 1.0
-        # Convert to float64 explicitly - EPS backend requires proper numpy arrays
-        vals = np.asarray(quant_maps[key], dtype=np.float64) * float(scale_factor) * np.asarray(mask, dtype=np.float64)
+        # Convert with explicit copy and ensure C-contiguous float64 arrays
+        data_array = np.array(quant_maps[key], dtype=np.float64, copy=True)
+        mask_array = np.array(mask, dtype=np.float64, copy=True)
+        vals = np.ascontiguousarray(data_array * float(scale_factor) * mask_array)
+
         plot = ax.imshow(vals, cmap=color_map)
         plot.set_clim(*clim)
         ax.set_title(title, fontsize=25)
-        cb = plt.colorbar(plot, ax=ax, ticks=ticks, orientation='vertical', fraction=0.046, pad=0.04)
+
+        # Convert ticks to explicit float64 list for EPS compatibility
+        tick_array = np.ascontiguousarray(ticks, dtype=np.float64)
+        cb = plt.colorbar(plot, ax=ax, ticks=tick_array.tolist(), orientation='vertical', fraction=0.046, pad=0.04)
         cb.ax.tick_params(labelsize=25)
         ax.set_axis_off()
 
