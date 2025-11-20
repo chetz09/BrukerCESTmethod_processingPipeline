@@ -44,7 +44,17 @@ class ConfigDK(Config):
             elif isinstance(dp_import[name].flatten()[0].flatten()[0],np.integer): #store as single integer value
                 dp[name]=int(dp_import[name].flatten()[0].flatten()[0])
             else:
-                dp[name]=float(dp_import[name].flatten()[0].flatten()[0]) 
+                try:
+                    dp[name]=float(dp_import[name].flatten()[0].flatten()[0])
+                except (ValueError, TypeError):
+                    # It's a string (like 'SuperLorentzian') - keep as string
+                    val = dp_import[name].flatten()[0].flatten()[0]
+                    if isinstance(val, str):
+                        dp[name] = val
+                    elif hasattr(val, 'decode'):  # Handle byte strings
+                        dp[name] = val.decode('utf-8')
+                    else:
+                        dp[name] = str(val) 
 
         # Water_pool
         config['water_pool'] = {}
