@@ -47,14 +47,14 @@ class ConfigDK(Config):
                 try:
                     dp[name]=float(dp_import[name].flatten()[0].flatten()[0])
                 except (ValueError, TypeError):
-                    # It's a string (like 'SuperLorentzian') - keep as string
+                    # It's a string (like 'SuperLorentzian') - force to native Python string
                     val = dp_import[name].flatten()[0].flatten()[0]
-                    if isinstance(val, str):
-                        dp[name] = val
-                    elif hasattr(val, 'decode'):  # Handle byte strings
-                        dp[name] = val.decode('utf-8')
+                    # Handle numpy strings, MATLAB strings, byte strings
+                    if hasattr(val, 'decode'):  # Byte strings
+                        dp[name] = str(val.decode('utf-8'))
                     else:
-                        dp[name] = str(val) 
+                        # Force to native Python string - handles numpy.str_, MATLAB strings, etc.
+                        dp[name] = str(val).strip() 
 
         # Water_pool
         config['water_pool'] = {}
