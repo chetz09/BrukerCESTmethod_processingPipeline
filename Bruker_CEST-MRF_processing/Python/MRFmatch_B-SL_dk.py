@@ -210,9 +210,17 @@ def main():
     if len(cfg['cest_pool'].keys())>1:
         eqvals=[('fs_0','fs_1',0.6666667)]
     else:
-        eqvals=None        
-    dictionary = generate_mrf_cest_dictionary(seq_fn=cfg['seq_fn'], param_fn=cfg['yaml_fn'], dict_fn=cfg['dict_fn'],
-                                 num_workers=cfg['num_workers'], axes='xy', equals=eqvals)
+        eqvals=None
+
+    # Check if dictionary already exists
+    if os.path.exists(cfg['dict_fn']):
+        print(f"Dictionary already exists at {cfg['dict_fn']}")
+        print("Skipping dictionary generation (delete dict.mat to regenerate)")
+        dictionary = None
+    else:
+        print("Generating new dictionary...")
+        dictionary = generate_mrf_cest_dictionary(seq_fn=cfg['seq_fn'], param_fn=cfg['yaml_fn'], dict_fn=cfg['dict_fn'],
+                                     num_workers=cfg['num_workers'], axes='xy', equals=eqvals)
 
     # Dot product matching and quant map generation
     start_time = time.perf_counter()
