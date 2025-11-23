@@ -14,6 +14,7 @@ from sequences_dk import write_sequence_DK
 from cest_mrf.write_scenario import write_yaml_dict
 from cest_mrf.dictionary.generation import generate_mrf_cest_dictionary
 from cest_mrf.metrics.dot_product import dot_prod_matching
+from cest_mrf.metrics.dot_product_chunked import dot_prod_matching_chunked
 
 class Config:
     def get_config(self):
@@ -144,10 +145,43 @@ def setup_sequence_definitions(cfg):
     return seq_defs
 
 
-def generate_quant_maps(acq_fn, dict_fn):
-    """Run dot product matching and save quant maps."""
-    # acq_fn = os.path.join(data_f, 'acquired_data.mat')
-    quant_maps = dot_prod_matching(dict_fn=dict_fn, acquired_data_fn=acq_fn)
+def generate_quant_maps(acq_fn, dict_fn, use_chunked=None, dict_chunk_size=5000000):
+    """
+    Run dot product matching and save quant maps.
+
+    Args:
+        acq_fn: Path to acquired data .mat file
+        dict_fn: Path to dictionary .mat file
+        use_chunked: If True, use chunked matching. If None, auto-detect based on dict size.
+        dict_chunk_size: Number of dictionary entries to process at once (default: 5M)
+
+    Returns:
+        quant_maps: Dictionary containing quantitative parameter maps
+    """
+    # Auto-detect whether to use chunked matching based on dictionary size
+    if use_chunked is None:
+        # Check dictionary size
+        dict_data = sio.loadmat(dict_fn)
+        if 'sig' in dict_data:
+            n_entries = dict_data['sig'].shape[0]  # Before transpose
+            # Use chunked matching for dictionaries > 20M entries
+            use_chunked = n_entries > 20000000
+            print(f"Dictionary has {n_entries:,} entries")
+            print(f"Using {'CHUNKED' if use_chunked else 'STANDARD'} matching algorithm")
+        else:
+            print("WARNING: 'sig' key not found in dictionary - cannot determine size")
+            print("Using standard matching (may fail for large dictionaries)")
+            use_chunked = False
+
+    if use_chunked:
+        print(f"Using chunked matching with chunk size: {dict_chunk_size:,} entries")
+        quant_maps = dot_prod_matching_chunked(dict_fn=dict_fn, acquired_data_fn=acq_fn,
+                                               voxel_batch_size=256,
+                                               dict_chunk_size=dict_chunk_size)
+    else:
+        print("Using standard matching algorithm")
+        quant_maps = dot_prod_matching(dict_fn=dict_fn, acquired_data_fn=acq_fn)
+
     return quant_maps
 
 
