@@ -193,17 +193,29 @@ def visualize_and_save_results(quant_maps, mat_fn):
     sio.savemat(mat_fn, quant_maps)
     print('quant_maps.mat saved')
 
-    mask = quant_maps['dp'] > 0.99974
+    # Mask threshold options based on your data quality:
+    # 0.90 = Permissive (shows ~98% of voxels)
+    # 0.95 = Conservative (shows ~80% of voxels with good matches) - RECOMMENDED
+    # 0.98 = Balanced (shows ~25% of voxels with very good matches)
+    # 0.99 = Strict (shows ~8% of voxels with excellent matches)
+    # 0.99974 = Too strict for real data (shows nothing)
+    mask_threshold = 0.95  # Adjust this based on check_quant_maps.py output
+    mask = quant_maps['dp'] > mask_threshold
     mask_fn = 'mask.npy'
     np.save(mask_fn, mask)
+
+    n_voxels_shown = np.sum(mask)
+    print(f"\nVisualization settings:")
+    print(f"  Mask threshold: {mask_threshold}")
+    print(f"  Voxels shown: {n_voxels_shown} / {mask.size} ({100*n_voxels_shown/mask.size:.1f}%)")
 
     fig_fn = 'OUTPUT_FILES/dot_product_results.eps'
     fig, axes = plt.subplots(1, 3, figsize=(30, 25))
     color_maps = [b_viridis, 'magma', 'magma']
     data_keys = ['fs', 'ksw', 'dp']
     titles = ['[L-arg] (mM)', 'k$_{sw}$ (s$^{-1}$)', 'Dot product']
-    clim_list = [(0, 120), (0, 500), (0.999, 1)]
-    tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.999, 1.0005, 0.0005)]
+    clim_list = [(0, 120), (0, 500), (0.90, 1)]  # Updated dot product range
+    tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.90, 1.01, 0.02)]  # Updated ticks
 
     for ax, color_map, key, title, clim, ticks in zip(axes.flat, color_maps, data_keys, titles, clim_list, tick_list):
         # Aggressive fix for EPS compatibility - force proper numpy arrays with copy
