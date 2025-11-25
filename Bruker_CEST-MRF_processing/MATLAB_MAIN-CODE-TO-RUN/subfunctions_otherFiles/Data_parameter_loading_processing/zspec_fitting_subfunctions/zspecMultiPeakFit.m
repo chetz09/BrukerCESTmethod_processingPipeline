@@ -186,7 +186,11 @@ end
 EPvec=EPvec.'; % transposing to get a column vector
 
 % Nonlinear regression parameter confidence interval
+warning('off','MATLAB:singularMatrix');
+warning('off','MATLAB:nearlySingularMatrix');
 CIvec=nlparci(EPvec,Residual,'jacobian',jacobian);
+warning('on','MATLAB:singularMatrix');
+warning('on','MATLAB:nearlySingularMatrix');
 
 % Getting the full spectrum + individual peaks using the estimated parmeters
 Sum_All_P=zeros(size(w));
