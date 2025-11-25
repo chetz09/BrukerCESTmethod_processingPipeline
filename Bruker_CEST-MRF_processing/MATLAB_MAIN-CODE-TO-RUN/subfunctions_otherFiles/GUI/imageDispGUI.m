@@ -20,12 +20,13 @@
 %       img             -   Struct containing updated images
 %       roi             -   Struct containing updated ROI data 
 %
-% This file contains several subfunctions within imageDispGUI() - see  
+% This file contains several subfunctions within imageDispGUI() - see
 % final section for brief descriptions:
 %   selDispGrp()
 %   selDispPool()
 %   nameROI()
 %   newROI()
+%   autoDetectTubes()
 %   selROI()
 %   ROIconc()
 %   ROIexch()
@@ -130,12 +131,15 @@ sff=uicontrol(bg1,'Style','checkbox','Position',[10 565 120 22],...
     'Value',settings.showFitsflg,'String','Show pool fits');
 
 % ROI creation
-uicontrol(bg1,'Style','text','Position',[30 535 80 15],...
+uicontrol(bg1,'Style','text','Position',[30 565 80 15],...
     'String','New ROI name:');
-nr=uicontrol(bg1,'Style','edit','Position',[30 510 80 20],...
+nr=uicontrol(bg1,'Style','edit','Position',[30 540 80 20],...
     'String',newname,'Callback',@nameROI);
-uicontrol(bg1,'Style','pushbutton','Position',[0 480 140 30],...
+uicontrol(bg1,'Style','pushbutton','Position',[0 510 140 30],...
     'String','Draw new ROI on slice','Callback',@newROI);
+uicontrol(bg1,'Style','pushbutton','Position',[0 480 140 30],...
+    'String','Auto-detect tubes','Callback',@autoDetectTubes,...
+    'BackgroundColor',[0.3 0.75 0.93]);
 
 % ROI selection and editing
 rbg=uibuttongroup('Position',[.005 .14 .09 .36],...
@@ -352,5 +356,90 @@ end
 function finishFig(~,~)
 close(tfig)
 close(drawfig)
+end
+
+
+% autoDetectTubes: Automatically detect phantom tubes and create ROIs
+function autoDetectTubes(~,~)
+    % Create dialog to get detection parameters
+    prompt = {'Minimum tube radius (pixels):', ...
+              'Maximum tube radius (pixels):', ...
+              'Detection sensitivity (0-1):', ...
+              'Detection method (hough/regionprops):'};
+    dlgtitle = 'Auto-detect Phantom Tubes';
+    dims = [1 45];
+    defaultans = {'10', '50', '0.85', 'hough'};
+    answer = inputdlg(prompt, dlgtitle, dims, defaultans);
+
+    % Check if user cancelled
+    if isempty(answer)
+        return;
+    end
+
+    % Parse parameters
+    options.minRadius = str2double(answer{1});
+    options.maxRadius = str2double(answer{2});
+    options.sensitivity = str2double(answer{3});
+    options.method = answer{4};
+
+    % Validate parameters
+    if isnan(options.minRadius) || isnan(options.maxRadius) || isnan(options.sensitivity)
+        errordlg('Invalid numeric parameters. Please enter valid numbers.', 'Error');
+        return;
+    end
+
+    if options.minRadius >= options.maxRadius
+        errordlg('Minimum radius must be less than maximum radius.', 'Error');
+        return;
+    end
+
+    if options.sensitivity < 0 || options.sensitivity > 1
+        errordlg('Sensitivity must be between 0 and 1.', 'Error');
+        return;
+    end
+
+    % Update status
+    set(si, 'String', 'Detecting...', 'ForegroundColor', 'blue');
+    drawnow;
+
+    % Call automatic detection function
+    try
+        [roi, centers, radii] = autoDetectPhantomTubes(img, settings, roi, options);
+
+        % Update GUI state
+        nROI = numel(roi);
+        if isfield(roi, 'name')
+            roinames = {roi.name};
+        else
+            roinames = cell(1);
+        end
+
+        % Make items in GUI pertaining to ROIs visible
+        if nROI > 0
+            set(rbg, 'Visible', 'on');
+            set(smaf, 'Visible', 'on');
+            set(sff, 'Visible', 'on');
+        end
+
+        % Update ROI selector
+        newname = ['ROI' num2str(nROI+1)];
+        set(nr, 'String', newname);
+        set(rs, 'String', roinames);
+
+        % Calculate ROI statistics and update display
+        [img, roi] = calcROIs(img, roi, settings, specifiedflg, scan_dirs, parprefs, ...
+            PV360flg, tfig);
+        roi = checkBoxesEnable(roi, chkbxHandles);
+        plotAxImg(img, roi, settings, si);
+
+        % Update status
+        set(si, 'String', sprintf('%d tubes\ndetected!', size(centers, 1)), ...
+            'ForegroundColor', [0 0.6 0]);
+
+    catch ME
+        % Error handling
+        set(si, 'String', 'Error!', 'ForegroundColor', 'red');
+        errordlg(sprintf('Auto-detection failed: %s', ME.message), 'Detection Error');
+    end
 end
 end
