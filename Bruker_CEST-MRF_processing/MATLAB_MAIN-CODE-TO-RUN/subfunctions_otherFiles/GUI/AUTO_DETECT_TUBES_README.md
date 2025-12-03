@@ -17,10 +17,23 @@ The automatic tube detection feature eliminates the need for manual ROI (Region 
 ### Basic Usage
 
 1. Load your CEST-MRF study data using `PROC_MRF_STUDY.m`
-2. In the interactive GUI, click the **"Auto-detect tubes"** button
-3. The algorithm will automatically detect all phantom tubes and create ROIs
-4. Review the detected ROIs overlaid on your images
-5. If needed, adjust detection parameters (see below) and re-run
+2. **Select the appropriate display group:**
+   - **Recommended: zSpec group with M0 image** (best for tube detection)
+   - Alternative: MRF group (uses dot product or T1w/T2w images)
+3. In the interactive GUI, click the **"Auto-detect tubes"** button
+4. The algorithm will automatically detect all phantom tubes and create ROIs
+5. Review the detected ROIs overlaid on your images
+6. If needed, adjust detection parameters (see below) and re-run
+
+### Which Image is Used for Detection?
+
+The algorithm automatically selects the best image based on your active display group:
+
+- **zSpec group**: Uses **M0 reference image** (recommended - cleanest signal without saturation)
+- **MRF group**: Uses dot product image, or falls back to T1w/T2w
+- **other group**: Uses T1w IR, T2w MSME, or B0 maps
+
+The GUI will display "Detecting on: [image type]" to show which image is being used.
 
 ### Detection Parameters
 
@@ -96,10 +109,19 @@ Each detected tube generates an ROI structure with the following fields:
 
 ## Troubleshooting
 
+### "No suitable image found" error
+- **For zSpec group**: Ensure M0 reference image is loaded
+  - M0 image is the unsaturated reference scan
+  - Check that your data loading includes M0 data
+- **For MRF group**: Ensure dot product or T1w/T2w images are available
+- Try switching to a different display group (use dropdown at top of GUI)
+
 ### No tubes detected
+- **Best practice**: Use zSpec group with M0 image for cleanest detection
 - Try adjusting the **Gauss sigma** parameter:
-  - Increase for noisy images
-  - Decrease for high-contrast images
+  - Increase for noisy images (try 5-8)
+  - Decrease for high-contrast images (try 2-3)
+- Adjust **Min tube pixels** based on your tube size
 - Verify the correct image group is selected (MRF, other, or zSpec)
 - Check that tubes are visible in the displayed image
 

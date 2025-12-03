@@ -275,21 +275,57 @@ end
 
 % autoDetectROIs: Automatically detect phantom tubes and create ROIs
 function autoDetectROIs(~,~)
-% Get the current image for detection
-currentImg = img.(settings.plotgrp).dp; % Use dot product image for MRF
-if ~isfield(img.(settings.plotgrp), 'dp')
-    % Fallback to other image types
-    if isfield(img.(settings.plotgrp), 't1w')
-        currentImg = img.(settings.plotgrp).t1w;
-    elseif isfield(img.(settings.plotgrp), 't2w')
-        currentImg = img.(settings.plotgrp).t2w;
-    elseif isfield(img.(settings.plotgrp), 'img')
-        currentImg = img.(settings.plotgrp).img(:,:,1); % First frame
-    else
-        errordlg('No suitable image found for tube detection.', 'Detection Error');
-        return;
+% Get the current image for detection based on active display group
+currentImg = [];
+imgTypeUsed = '';
+
+% Priority order depends on the display group
+if strcmp(settings.plotgrp, 'zSpec')
+    % For zSpec group, use M0 image (reference without saturation)
+    if isfield(img.zSpec, 'M0image')
+        currentImg = img.zSpec.M0image;
+        imgTypeUsed = 'M0 reference image';
+    elseif isfield(img.zSpec, 'img') && size(img.zSpec.img, 3) > 0
+        currentImg = img.zSpec.img(:,:,1); % First frame as fallback
+        imgTypeUsed = 'First z-spectrum frame';
+    end
+elseif strcmp(settings.plotgrp, 'MRF')
+    % For MRF group, use dot product or T1w/T2w
+    if isfield(img.MRF, 'dp')
+        currentImg = img.MRF.dp;
+        imgTypeUsed = 'Dot product image';
+    elseif isfield(img.MRF, 't1w')
+        currentImg = img.MRF.t1w;
+        imgTypeUsed = 'T1-weighted image';
+    elseif isfield(img.MRF, 't2w')
+        currentImg = img.MRF.t2w;
+        imgTypeUsed = 'T2-weighted image';
+    end
+else
+    % For 'other' group, use available parameter maps
+    if isfield(img.other, 't1wIR')
+        currentImg = img.other.t1wIR;
+        imgTypeUsed = 'T1w inversion recovery image';
+    elseif isfield(img.other, 't2wMSME')
+        currentImg = img.other.t2wMSME;
+        imgTypeUsed = 'T2w multi-echo image';
+    elseif isfield(img.other, 'B0WASSR_Hz')
+        currentImg = img.other.B0WASSR_Hz;
+        imgTypeUsed = 'B0 WASSR map';
     end
 end
+
+% Check if we found a suitable image
+if isempty(currentImg)
+    errordlg(['No suitable image found for tube detection in ' settings.plotgrp ' group. ' ...
+              'For zSpec, M0 image is required. Switch to MRF or other group, or load M0 data.'], ...
+              'Detection Error');
+    return;
+end
+
+% Display which image is being used
+set(si, 'String', ['Detecting on: ' imgTypeUsed], 'ForegroundColor', [0 0.4 0.8]);
+drawnow;
 
 % Get image size
 imgSize = [img.(settings.plotgrp).size(1), img.(settings.plotgrp).size(2)];
@@ -349,11 +385,14 @@ try
     roi = checkBoxesEnable(roi,chkbxHandles);
     plotAxImg(img,roi,settings,si);
 
-    % Show success message
-    msgbox(sprintf('Successfully detected %d tubes!', numel(detectedROIs)), ...
+    % Clear status indicator and show success message
+    set(si, 'String', '', 'ForegroundColor', [0 0 0]);
+    msgbox(sprintf('Successfully detected %d tubes using %s!', numel(detectedROIs), imgTypeUsed), ...
         'Detection Success');
 
 catch ME
+    % Clear status indicator and show error
+    set(si, 'String', '', 'ForegroundColor', [0 0 0]);
     errordlg(['Tube detection failed: ' ME.message], 'Detection Error');
 end
 end
