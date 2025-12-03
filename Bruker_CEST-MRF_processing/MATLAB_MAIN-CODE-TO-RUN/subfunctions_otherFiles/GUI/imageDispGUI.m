@@ -279,8 +279,8 @@ function autoDetectROIs(~,~)
 currentImg = [];
 
 % Check if zSpec group exists and has M0 image
-if isfield(img, 'zSpec') && isfield(img.zSpec, 'M0image')
-    currentImg = img.zSpec.M0image;
+if isfield(img, 'zSpec') && isfield(img.zSpec, 'M0img')
+    currentImg = img.zSpec.M0img;
 else
     errordlg(['M0 image not found. Auto-detect tubes requires M0 reference image from zSpec group. ' ...
               'Please ensure zSpec data with M0 image is loaded.'], ...
@@ -293,7 +293,7 @@ set(si, 'String', 'Detecting tubes...', 'ForegroundColor', [0 0.4 0.8]);
 drawnow;
 
 % Get image size from zSpec M0 image
-imgSize = size(img.zSpec.M0image);
+imgSize = size(img.zSpec.M0img);
 
 % Get user-adjustable detection parameters
 gaussSigma = settings.autoDetectGaussSigma;
