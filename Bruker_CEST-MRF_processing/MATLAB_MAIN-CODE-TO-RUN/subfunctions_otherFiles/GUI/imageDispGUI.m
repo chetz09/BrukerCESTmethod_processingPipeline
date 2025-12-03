@@ -20,12 +20,13 @@
 %       img             -   Struct containing updated images
 %       roi             -   Struct containing updated ROI data 
 %
-% This file contains several subfunctions within imageDispGUI() - see  
+% This file contains several subfunctions within imageDispGUI() - see
 % final section for brief descriptions:
 %   selDispGrp()
 %   selDispPool()
 %   nameROI()
 %   newROI()
+%   autoDetectROIs()
 %   selROI()
 %   ROIconc()
 %   ROIexch()
@@ -62,6 +63,10 @@ settings.maskImgs=true;
 settings.dpMaskVal=0.999;
 settings.showMTRasymflg=true;
 settings.showFitsflg=true;
+
+% Set auto-detection parameters
+settings.autoDetectGaussSigma=4;
+settings.autoDetectMinPixels=10;
 
 % Set initial plotting group, based upon what was loaded
 if isfield(img,'MRF')
@@ -130,12 +135,28 @@ sff=uicontrol(bg1,'Style','checkbox','Position',[10 565 120 22],...
     'Value',settings.showFitsflg,'String','Show pool fits');
 
 % ROI creation
-uicontrol(bg1,'Style','text','Position',[30 535 80 15],...
+uicontrol(bg1,'Style','text','Position',[30 595 80 15],...
     'String','New ROI name:');
-nr=uicontrol(bg1,'Style','edit','Position',[30 510 80 20],...
+nr=uicontrol(bg1,'Style','edit','Position',[30 570 80 20],...
     'String',newname,'Callback',@nameROI);
-uicontrol(bg1,'Style','pushbutton','Position',[0 480 140 30],...
+uicontrol(bg1,'Style','pushbutton','Position',[0 540 140 30],...
     'String','Draw new ROI on slice','Callback',@newROI);
+uicontrol(bg1,'Style','pushbutton','Position',[0 505 140 30],...
+    'String','Auto-detect tubes','Callback',@autoDetectROIs);
+
+% Auto-detection parameters
+uicontrol(bg1,'Style','text','Position',[5 480 150 15],...
+    'String','Auto-detect parameters:','FontWeight','bold');
+uicontrol(bg1,'Style','text','Position',[10 460 100 15],...
+    'String','Gauss sigma:');
+uicontrol(bg1,'Style','edit','Position',[30 440 80 20],...
+    'String',num2str(settings.autoDetectGaussSigma),...
+    'Tag','autoDetectGaussSigma','Callback',@editSettingVals);
+uicontrol(bg1,'Style','text','Position',[10 415 120 15],...
+    'String','Min tube pixels:');
+uicontrol(bg1,'Style','edit','Position',[30 395 80 20],...
+    'String',num2str(settings.autoDetectMinPixels),...
+    'Tag','autoDetectMinPixels','Callback',@editSettingVals);
 
 % ROI selection and editing
 rbg=uibuttongroup('Position',[.005 .14 .09 .36],...
@@ -249,6 +270,92 @@ set(rs,'String',roinames);
     PV360flg,tfig);
 roi=checkBoxesEnable(roi,chkbxHandles);
 plotAxImg(img,roi,settings,si)
+end
+
+
+% autoDetectROIs: Automatically detect phantom tubes and create ROIs
+function autoDetectROIs(~,~)
+% Get the current image for detection
+currentImg = img.(settings.plotgrp).dp; % Use dot product image for MRF
+if ~isfield(img.(settings.plotgrp), 'dp')
+    % Fallback to other image types
+    if isfield(img.(settings.plotgrp), 't1w')
+        currentImg = img.(settings.plotgrp).t1w;
+    elseif isfield(img.(settings.plotgrp), 't2w')
+        currentImg = img.(settings.plotgrp).t2w;
+    elseif isfield(img.(settings.plotgrp), 'img')
+        currentImg = img.(settings.plotgrp).img(:,:,1); % First frame
+    else
+        errordlg('No suitable image found for tube detection.', 'Detection Error');
+        return;
+    end
+end
+
+% Get image size
+imgSize = [img.(settings.plotgrp).size(1), img.(settings.plotgrp).size(2)];
+
+% Get user-adjustable detection parameters
+gaussSigma = settings.autoDetectGaussSigma;
+minPixels = settings.autoDetectMinPixels;
+
+% Call auto-detection function with user parameters
+try
+    detectedROIs = autoDetectTubes(currentImg, imgSize, gaussSigma, ...
+        minPixels, 'Tube', true);
+
+    if isempty(detectedROIs)
+        warndlg('No tubes detected. Try adjusting the image or detection parameters.', 'Detection Warning');
+        return;
+    end
+
+    % Replace existing ROIs or append?
+    if nROI > 0
+        answer = questdlg('Replace existing ROIs or append detected tubes?', ...
+            'Auto-detection', 'Replace', 'Append', 'Cancel', 'Append');
+        if strcmp(answer, 'Cancel')
+            return;
+        elseif strcmp(answer, 'Replace')
+            roi = detectedROIs;
+            nROI = numel(roi);
+            roinames = {roi.name};
+        else % Append
+            startIdx = nROI + 1;
+            for i = 1:numel(detectedROIs)
+                roi(startIdx + i - 1) = detectedROIs(i);
+                roi(startIdx + i - 1).name = sprintf('Tube%d', startIdx + i - 1);
+            end
+            nROI = numel(roi);
+            roinames = {roi.name};
+        end
+    else
+        roi = detectedROIs;
+        nROI = numel(roi);
+        roinames = {roi.name};
+    end
+
+    % Update GUI elements
+    if nROI > 0
+        set(rbg,'Visible','on');
+        set(smaf,'Visible','on');
+        set(sff,'Visible','on');
+    end
+    newname = ['ROI' num2str(nROI+1)];
+    set(nr,'String',newname);
+    set(rs,'String',roinames);
+
+    % Calculate ROI statistics and plot
+    [img,roi] = calcROIs(img,roi,settings,specifiedflg,scan_dirs,parprefs,...
+        PV360flg,tfig);
+    roi = checkBoxesEnable(roi,chkbxHandles);
+    plotAxImg(img,roi,settings,si);
+
+    % Show success message
+    msgbox(sprintf('Successfully detected %d tubes!', numel(detectedROIs)), ...
+        'Detection Success');
+
+catch ME
+    errordlg(['Tube detection failed: ' ME.message], 'Detection Error');
+end
 end
 
 
