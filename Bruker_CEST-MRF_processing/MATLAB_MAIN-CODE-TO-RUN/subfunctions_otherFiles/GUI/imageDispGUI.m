@@ -275,16 +275,34 @@ end
 
 % autoDetectROIs: Automatically detect phantom tubes and create ROIs
 function autoDetectROIs(~,~)
-% ONLY uses M0 image from zSpec group for tube detection
+% Automatically select best available image for tube detection
 currentImg = [];
 
-% Check if zSpec group exists and has M0 image
+% Try to get best available image with priority for M0img from zSpec
 if isfield(img, 'zSpec') && isfield(img.zSpec, 'M0img')
     currentImg = img.zSpec.M0img;
-else
-    errordlg(['M0 image not found. Auto-detect tubes requires M0 reference image from zSpec group. ' ...
-              'Please ensure zSpec data with M0 image is loaded.'], ...
-              'M0 Image Required');
+elseif isfield(img, 'zSpec') && isfield(img.zSpec, 'img') && size(img.zSpec.img, 3) > 0
+    currentImg = img.zSpec.img(:,:,1); % First frame
+elseif strcmp(settings.plotgrp, 'MRF')
+    if isfield(img.MRF, 'dp')
+        currentImg = img.MRF.dp;
+    elseif isfield(img.MRF, 't1w')
+        currentImg = img.MRF.t1w;
+    elseif isfield(img.MRF, 't2w')
+        currentImg = img.MRF.t2w;
+    end
+elseif strcmp(settings.plotgrp, 'other')
+    if isfield(img.other, 't1wIR')
+        currentImg = img.other.t1wIR;
+    elseif isfield(img.other, 't2wMSME')
+        currentImg = img.other.t2wMSME;
+    end
+end
+
+% Check if we found any suitable image
+if isempty(currentImg)
+    errordlg('No suitable image found for tube detection. Please ensure data is loaded.', ...
+              'Image Not Found');
     return;
 end
 
@@ -292,8 +310,8 @@ end
 set(si, 'String', 'Detecting tubes...', 'ForegroundColor', [0 0.4 0.8]);
 drawnow;
 
-% Get image size from zSpec M0 image
-imgSize = size(img.zSpec.M0img);
+% Get image size
+imgSize = size(currentImg);
 
 % Get user-adjustable detection parameters
 gaussSigma = settings.autoDetectGaussSigma;
@@ -352,7 +370,7 @@ try
 
     % Clear status indicator and show success message
     set(si, 'String', '', 'ForegroundColor', [0 0 0]);
-    msgbox(sprintf('Successfully detected %d tubes using M0 image!', numel(detectedROIs)), ...
+    msgbox(sprintf('Successfully detected %d tubes!', numel(detectedROIs)), ...
         'Detection Success');
 
 catch ME
