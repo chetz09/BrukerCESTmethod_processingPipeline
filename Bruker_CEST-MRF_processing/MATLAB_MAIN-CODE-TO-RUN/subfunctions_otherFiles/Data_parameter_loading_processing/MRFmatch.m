@@ -53,8 +53,8 @@ if isfield(dirstruct,'use_cluster') && dirstruct.use_cluster
     end
 
     % Clean large storage directory if specified
-    if isfield(dirstruct,'large_storage_dir') && ~isempty(dirstruct.large_storage_dir)
-        large_output_dir = fullfile(dirstruct.large_storage_dir, 'MRF_OUTPUT');
+    if isfield(dirstruct,'cluster_large_storage_dir') && ~isempty(dirstruct.cluster_large_storage_dir)
+        large_output_dir = fullfile(dirstruct.cluster_large_storage_dir, 'MRF_OUTPUT');
         if exist(large_output_dir, 'dir')
             old_files = dir(fullfile(large_output_dir, 'quant_maps*.mat'));
             for i = 1:length(old_files)
@@ -100,13 +100,13 @@ if isfield(dirstruct,'use_cluster') && dirstruct.use_cluster
     disp('Step 2/4: Submitting job to cluster...')
 
     % Prepare environment variable for large storage if specified
-    if isfield(dirstruct,'large_storage_dir') && ~isempty(dirstruct.large_storage_dir)
-        fprintf('  Setting LARGE_STORAGE_DIR=%s\n', dirstruct.large_storage_dir);
+    if isfield(dirstruct,'cluster_large_storage_dir') && ~isempty(dirstruct.cluster_large_storage_dir)
+        fprintf('  Setting LARGE_STORAGE_DIR=%s\n', dirstruct.cluster_large_storage_dir);
         ssh_cmd = sprintf('ssh %s@%s "cd %s && sbatch --export=ALL,LARGE_STORAGE_DIR=%s %s"', ...
             dirstruct.cluster_user, ...
             dirstruct.cluster_host, ...
             dirstruct.cluster_dir, ...
-            dirstruct.large_storage_dir, ...
+            dirstruct.cluster_large_storage_dir, ...
             dirstruct.cluster_job_script);
     else
         ssh_cmd = sprintf('ssh %s@%s "cd %s && sbatch %s"', ...
@@ -146,8 +146,8 @@ if isfield(dirstruct,'use_cluster') && dirstruct.use_cluster
     check_count = 0;
 
     % Determine where to check for output files
-    if isfield(dirstruct,'large_storage_dir') && ~isempty(dirstruct.large_storage_dir)
-        check_path = sprintf('%s/MRF_OUTPUT/quant_maps.mat', dirstruct.large_storage_dir);
+    if isfield(dirstruct,'cluster_large_storage_dir') && ~isempty(dirstruct.cluster_large_storage_dir)
+        check_path = sprintf('%s/MRF_OUTPUT/quant_maps.mat', dirstruct.cluster_large_storage_dir);
     else
         check_path = sprintf('%s/OUTPUT_FILES/quant_maps.mat', dirstruct.cluster_dir);
     end
@@ -218,8 +218,8 @@ if isfield(dirstruct,'use_cluster') && dirstruct.use_cluster
     disp('Step 4/4: Downloading results from cluster...')
 
     % Determine source and destination for files
-    if isfield(dirstruct,'large_storage_dir') && ~isempty(dirstruct.large_storage_dir)
-        remote_dir = sprintf('%s/MRF_OUTPUT', dirstruct.large_storage_dir);
+    if isfield(dirstruct,'cluster_large_storage_dir') && ~isempty(dirstruct.cluster_large_storage_dir)
+        remote_dir = sprintf('%s/MRF_OUTPUT', dirstruct.cluster_large_storage_dir);
         local_output = fullfile(dirstruct.py_dir,'OUTPUT_FILES');
         fprintf('Retrieving files from large storage: %s\n', remote_dir);
     else
@@ -293,9 +293,9 @@ else
     cd(dirstruct.py_dir)
 
     % Set environment variable for large storage if specified
-    if isfield(dirstruct,'large_storage_dir') && ~isempty(dirstruct.large_storage_dir)
-        env_cmd = sprintf('export LARGE_STORAGE_DIR=%s;', dirstruct.large_storage_dir);
-        fprintf('Using large storage directory: %s\n', dirstruct.large_storage_dir);
+    if isfield(dirstruct,'cluster_large_storage_dir') && ~isempty(dirstruct.cluster_large_storage_dir)
+        env_cmd = sprintf('export LARGE_STORAGE_DIR=%s;', dirstruct.cluster_large_storage_dir);
+        fprintf('Using large storage directory: %s\n', dirstruct.cluster_large_storage_dir);
     else
         env_cmd = '';
     end

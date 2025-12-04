@@ -38,10 +38,6 @@ configs.py_env='cbdmrfpy'; %name of python environment to activate
 configs.bashfn='.bashrc'; %system file in home directory containing conda alias
     %(e.g. .bashrc, .zshrc)
 
-% Large storage directory (1TB) for saving dict.mat and quant_maps.mat
-configs.large_storage_dir='/autofs/vast/farrar/users/cd1052';
-    %path to directory with large storage capacity for dictionary and quantification maps
-
 % Name of file to search for and load for MRF, which contains parameters
 % maps outputted from Python scripts (make sure it ends with .mat)
 configs.MRFfn='quant_maps.mat';
@@ -55,6 +51,8 @@ configs.cluster_user = 'cd1052';
 configs.cluster_host = 'mlsc.nmr.mgh.harvard.edu';
 configs.cluster_dir = '/autofs/homes/001/cd1052/molecular-mrf-main/molecular-mrf-main';
 configs.cluster_job_script = 'srun.bash';
+configs.cluster_large_storage_dir='/autofs/vast/farrar/users/cd1052';
+    % Large storage directory (1TB) on cluster for saving dict.mat and quant_maps.mat
 
 % For MATCH_MRF_MULTI: Substrings pertaining to schedule filename that are
 % NOT MRF datasets (used to eliminate non-MRF fp(SL)_EPI datasets from
