@@ -22,11 +22,24 @@ class Config:
 class ConfigDK(Config):
     def __init__(self):
         config = {}
+
+        # Check if large storage directory is specified via environment variable
+        large_storage = os.environ.get('LARGE_STORAGE_DIR', None)
+
+        # Set output paths based on large storage availability
+        if large_storage and os.path.exists(large_storage):
+            print(f'Using large storage directory: {large_storage}')
+            os.makedirs(os.path.join(large_storage, 'MRF_OUTPUT'), exist_ok=True)
+            config['dict_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'dict.mat')
+            config['quantmaps_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'quant_maps.mat')
+        else:
+            print('Using default OUTPUT_FILES directory')
+            config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
+            config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
+
         config['yaml_fn'] = 'OUTPUT_FILES/scenario.yaml'
         config['seq_fn'] = 'OUTPUT_FILES/acq_protocol.seq'
-        config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
         config['acqdata_fn'] = 'INPUT_FILES/acquired_data.mat'
-        config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
 
         # Modified by DK to pull in dictpars from acquired_data.mat
         dp = {}
@@ -140,13 +153,15 @@ def visualize_and_save_results(quant_maps, mat_fn):
 
     # mat_fn = os.path.join(output_f, 'quant_maps.mat')
     sio.savemat(mat_fn, quant_maps)
-    print('quant_maps.mat saved')
+    print(f'quant_maps.mat saved to: {mat_fn}')
 
     mask = quant_maps['dp'] > 0.99974
     mask_fn = 'mask.npy'
     np.save(mask_fn, mask)
 
-    fig_fn = 'OUTPUT_FILES/dot_product_results.eps'
+    # Save dot_product_results.eps in same directory as quant_maps.mat
+    output_dir = os.path.dirname(mat_fn) if os.path.dirname(mat_fn) else 'OUTPUT_FILES'
+    fig_fn = os.path.join(output_dir, 'dot_product_results.eps')
     fig, axes = plt.subplots(1, 3, figsize=(30, 25))
     color_maps = [b_viridis, 'magma', 'magma']
     data_keys = ['fs', 'ksw', 'dp']

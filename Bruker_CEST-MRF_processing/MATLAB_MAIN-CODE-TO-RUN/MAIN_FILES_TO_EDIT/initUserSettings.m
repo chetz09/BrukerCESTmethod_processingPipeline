@@ -27,26 +27,37 @@ configs.ext_dir=fullfile(baseFcnDir,'subfunctions_otherFiles','external');
     %shouldn't need to change
 
 % Info for calling Python scripts to do dictionary matching
-configs.py_dir='/Users/dk384/Documents/Laboratory/MGH_Farrar-Rosen/Python/molecular-mrf-main/dk_forDotProdMatch';
+configs.py_dir='/autofs/homes/001/cd1052/molecular-mrf-main/molecular-mrf-main';
     %path to directory containing Python code for dictionary matching, etc.
 configs.py_file='MRFmatch_B-SL_dk.py'; %name of file to run
 configs.conda_env='mrfmatch'; %name of conda environment to activate
     %(NOTE: currently I need to activate this along with conda to get the
     %Python script to work!
-configs.py_env='dkpymrf'; %name of python environment to activate  
+configs.py_env='dkpymrf'; %name of python environment to activate
 
-configs.bashfn='.zshrc'; %system file in home directory containing conda alias 
-    %(e.g. .zshrc)
+configs.bashfn='.bashrc'; %system file in home directory containing conda alias
+    %(e.g. .bashrc, .zshrc)
+
+% Large storage directory (1TB) for saving dict.mat and quant_maps.mat
+configs.large_storage_dir='/autofs/vast/farrar/users/cd1052';
+    %path to directory with large storage capacity for dictionary and quantification maps
 
 % Name of file to search for and load for MRF, which contains parameters
 % maps outputted from Python scripts (make sure it ends with .mat)
 configs.MRFfn='quant_maps.mat';
 % configs.MRFfn='quant_maps_sim[y,-x,-y].mat';
 % configs.MRFfn='quant_maps_T1T2Fixed.mat';
-% configs.MRFfn='quant_maps_logKb_T1T2Fixed.mat'; 
+% configs.MRFfn='quant_maps_logKb_T1T2Fixed.mat';
 
-% For MATCH_MRF_MULTI: Substrings pertaining to schedule filename that are 
-% NOT MRF datasets (used to eliminate non-MRF fp(SL)_EPI datasets from 
+% Cluster configuration
+configs.use_cluster = true;  % SET TO true WHEN YOU WANT TO USE CLUSTER
+configs.cluster_user = 'cd1052';
+configs.cluster_host = 'mlsc.nmr.mgh.harvard.edu';
+configs.cluster_dir = '/autofs/homes/001/cd1052/molecular-mrf-main/molecular-mrf-main';
+configs.cluster_job_script = 'srun.bash';
+
+% For MATCH_MRF_MULTI: Substrings pertaining to schedule filename that are
+% NOT MRF datasets (used to eliminate non-MRF fp(SL)_EPI datasets from
 % directory list) - note that these are NOT case-sensitive!
 configs.notMRFstr={'quesp','wassr','R1rho'};
 
