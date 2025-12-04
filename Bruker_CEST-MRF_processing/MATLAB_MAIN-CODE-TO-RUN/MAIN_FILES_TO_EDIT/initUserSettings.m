@@ -30,10 +30,10 @@ configs.ext_dir=fullfile(baseFcnDir,'subfunctions_otherFiles','external');
 configs.py_dir='/autofs/homes/001/cd1052/molecular-mrf-main/molecular-mrf-main';
     %path to directory containing Python code for dictionary matching, etc.
 configs.py_file='MRFmatch_B-SL_dk.py'; %name of file to run
-configs.conda_env='mrfmatch'; %name of conda environment to activate
+configs.conda_env='cbdmrf'; %name of conda environment to activate
     %(NOTE: currently I need to activate this along with conda to get the
     %Python script to work!
-configs.py_env='dkpymrf'; %name of python environment to activate
+configs.py_env='cbdmrfpy'; %name of python environment to activate
 
 configs.bashfn='.bashrc'; %system file in home directory containing conda alias
     %(e.g. .bashrc, .zshrc)
