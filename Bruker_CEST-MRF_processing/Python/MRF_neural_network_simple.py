@@ -32,14 +32,33 @@ from deep_reco_example.dataset import DatasetMRF
 from deep_reco_example.model import Network
 
 
-class ConfigDK:
+class Config:
+    def get_config(self):
+        return self.cfg
+
+
+class ConfigDK(Config):
     """Load configuration from MATLAB-generated acquired_data.mat"""
     def __init__(self):
         config = {}
+
+        # Check for large storage directory
+        large_storage = os.environ.get('LARGE_STORAGE_DIR', None)
+
+        if large_storage and os.path.exists(large_storage):
+            print(f'Using large storage directory: {large_storage}')
+            os.makedirs(os.path.join(large_storage, 'MRF_OUTPUT'), exist_ok=True)
+            config['dict_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'dict.mat')
+            config['quantmaps_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'quant_maps.mat')
+        else:
+            print('Using default OUTPUT_FILES directory')
+            config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
+            config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
+
         config['yaml_fn'] = 'OUTPUT_FILES/scenario.yaml'
         config['seq_fn'] = 'OUTPUT_FILES/acq_protocol.seq'
-        config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
         config['acqdata_fn'] = 'INPUT_FILES/acquired_data.mat'
+        config['num_gpus'] = int(os.environ.get('NUM_GPUS', '3'))  # Support multiple GPUs
 
         # Load dictionary parameters from acquired_data.mat
         dp = {}
@@ -50,7 +69,16 @@ class ConfigDK:
             elif isinstance(dp_import[name].flatten()[0].flatten()[0], np.integer):
                 dp[name] = int(dp_import[name].flatten()[0].flatten()[0])
             else:
-                dp[name] = float(dp_import[name].flatten()[0].flatten()[0])
+                try:
+                    dp[name] = float(dp_import[name].flatten()[0].flatten()[0])
+                except (ValueError, TypeError):
+                    val = dp_import[name].flatten()[0].flatten()[0]
+                    if isinstance(val, str):
+                        dp[name] = val
+                    elif hasattr(val, 'decode'):
+                        dp[name] = val.decode('utf-8')
+                    else:
+                        dp[name] = str(val)
 
         # Water pool
         config['water_pool'] = {}
@@ -90,12 +118,9 @@ class ConfigDK:
         # Processing
         config['verbose'] = 0
         config['max_pulse_samples'] = 100
-        config['num_workers'] = int(os.environ.get('NUM_WORKERS', 18))
+        config['num_workers'] = 18
 
         self.cfg = config
-
-    def get_config(self):
-        return self.cfg
 
 
 def setup_sequence_definitions(cfg):
@@ -153,7 +178,10 @@ def main():
     cfg = ConfigDK().get_config()
     print(f"  B0: {cfg['b0']} T")
     print(f"  Num workers: {cfg['num_workers']}")
+    print(f"  Num GPUs: {cfg['num_gpus']}")
     print(f"  CEST pools: {len(cfg['cest_pool'])}")
+    print(f"  Dictionary output: {cfg['dict_fn']}")
+    print(f"  Quant maps output: {cfg['quantmaps_fn']}")
 
     # Write YAML and sequence files
     write_yaml_dict(cfg)
@@ -204,23 +232,28 @@ def main():
     print("Step 7: Saving results...")
 
     # Try to load mask from dot product (if available), otherwise create simple mask
+    # Note: Neural network doesn't produce dot product metric (only available in dictionary matching)
+    # If you previously ran dictionary matching, it will use that mask (threshold typically 0.95)
     try:
         mask = np.load('OUTPUT_FILES/mask.npy')
-        print("  Using mask from OUTPUT_FILES/mask.npy")
+        print("  Using existing mask from OUTPUT_FILES/mask.npy")
     except:
         print("  Creating simple mask (non-zero values)")
+        # Simple mask: include pixels with valid parameter estimates
         mask = (quant_maps['fs'] > 0) & (quant_maps['ksw'] > 0)
         np.save('OUTPUT_FILES/mask.npy', mask)
+        print("  Tip: For better masking, first run dictionary matching to generate mask with dot product > 0.95")
 
-    save_and_plot_results(quant_maps, output_folder, mask)
+    save_and_plot_results(quant_maps, cfg['quantmaps_fn'], output_folder, mask)
 
     print("\n" + "="*60)
     print("COMPLETED SUCCESSFULLY")
     print("="*60)
-    print(f"\nResults saved to: {output_folder}/")
-    print(f"  - nn_reco_maps.mat")
-    print(f"  - deep_reco_results.eps")
-    print(f"  - checkpoint.pt (trained model)")
+    print(f"\nResults saved:")
+    print(f"  - {cfg['quantmaps_fn']}")
+    print(f"  - {output_folder}/deep_reco_results.eps")
+    print(f"  - {output_folder}/checkpoint.pt (trained model)")
+    print(f"  - {output_folder}/mask.npy")
     print("="*60 + "\n")
 
 
@@ -363,14 +396,13 @@ def evaluate_network(reco_net, data, device, min_param_tensor, max_param_tensor,
     return quant_maps
 
 
-def save_and_plot_results(quant_maps, output_folder, mask):
+def save_and_plot_results(quant_maps, quantmaps_fn, output_folder, mask):
     """Save quantitative maps and generate plots"""
     os.makedirs(output_folder, exist_ok=True)
 
-    # Save .mat file
-    out_fn = os.path.join(output_folder, 'nn_reco_maps.mat')
-    sio.savemat(out_fn, quant_maps)
-    print(f"  Saved: {out_fn}")
+    # Save .mat file (use provided path or default)
+    sio.savemat(quantmaps_fn, quant_maps)
+    print(f"  Saved: {quantmaps_fn}")
 
     # Generate plot
     fig_fn = os.path.join(output_folder, 'deep_reco_results.eps')
