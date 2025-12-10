@@ -250,8 +250,9 @@ def main():
     print("COMPLETED SUCCESSFULLY")
     print("="*60)
     print(f"\nResults saved:")
-    print(f"  - {cfg['quantmaps_fn']}")
-    print(f"  - {output_folder}/deep_reco_results.eps")
+    print(f"  - {cfg['quantmaps_fn']} (quantitative maps)")
+    print(f"  - {output_folder}/nn_reco_results.svg (editable)")
+    print(f"  - {output_folder}/nn_reco_results.eps (publication)")
     print(f"  - {output_folder}/checkpoint.pt (trained model)")
     print(f"  - {output_folder}/mask.npy")
     print("="*60 + "\n")
@@ -397,35 +398,79 @@ def evaluate_network(reco_net, data, device, min_param_tensor, max_param_tensor,
 
 
 def save_and_plot_results(quant_maps, quantmaps_fn, output_folder, mask):
-    """Save quantitative maps and generate plots"""
+    """
+    Save quantitative maps and generate publication-quality plots
+
+    Integrated from preclinical.py and visualize_and_save_results with:
+    - Publication-quality font settings
+    - Glutamate-appropriate colorbar ranges
+    - SVG and EPS output formats
+    - Numpy compatibility fixes
+    """
     os.makedirs(output_folder, exist_ok=True)
+
+    # Set publication-quality font types (important for journals)
+    plt.rcParams['pdf.fonttype'] = 42
+    plt.rcParams['ps.fonttype'] = 42
+    plt.rcParams['svg.fonttype'] = 'none'
 
     # Save .mat file (use provided path or default)
     sio.savemat(quantmaps_fn, quant_maps)
     print(f"  Saved: {quantmaps_fn}")
 
-    # Generate plot
-    fig_fn = os.path.join(output_folder, 'deep_reco_results.eps')
-    plt.figure(figsize=(10, 5))
+    # Generate plots (2 subplots: concentration and exchange rate)
+    # Neural network doesn't produce dot product, so only 2 maps
+    fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 
-    # Concentration map
-    plt.subplot(121)
-    plt.imshow(quant_maps['fs'] * 110e3/3 * mask, cmap=b_viridis, clim=(0, 120))
-    plt.colorbar(ticks=np.arange(0, 121, 20), fraction=0.046, pad=0.04)
-    plt.title('[L-arg] (mM)')
-    plt.axis("off")
+    # Define plot parameters
+    # Adjusted for glutamate (lower concentration than L-arg)
+    color_maps = [b_viridis, 'magma']
+    data_keys = ['fs', 'ksw']
+    titles = ['[Glutamate] (mM)', 'k$_{sw}$ (s$^{-1}$)']
 
-    # Exchange rate map
-    plt.subplot(122)
-    plt.imshow(quant_maps['ksw'] * mask, cmap='magma', clim=(0, 500))
-    plt.colorbar(ticks=np.arange(0, 501, 100), fraction=0.046, pad=0.04)
-    plt.title('k$_{sw}$ (s$^{-1}$)')
-    plt.axis("off")
+    # Colorbar ranges: adjust these based on your sample
+    # For glutamate: typically 0-40 mM (vs L-arg 0-120 mM)
+    # For ksw: 0-10000 s^-1 (wider range than L-arg's 0-500 s^-1)
+    clim_list = [(0, 40), (0, 10000)]
+    tick_list = [np.arange(0, 45, 5), np.arange(0, 11000, 1000)]
+
+    # Plot each map
+    for ax, color_map, key, title, clim, ticks in zip(axes.flat, color_maps, data_keys,
+                                                       titles, clim_list, tick_list):
+        # Calculate scale factor (convert fs to mM)
+        scale_factor = 110e3 / 3 if key == 'fs' else 1.0
+
+        # Ensure arrays are C-contiguous float64 (numpy 1.23+ compatibility)
+        data_array = np.array(quant_maps[key], dtype=np.float64, copy=True)
+        mask_array = np.array(mask, dtype=np.float64, copy=True)
+        vals = np.ascontiguousarray(data_array * float(scale_factor) * mask_array,
+                                     dtype=np.float64)
+
+        # Create plot
+        plot = ax.imshow(vals, cmap=color_map)
+        plot.set_clim(*clim)
+        ax.set_title(title, fontsize=25)
+
+        # Add colorbar with proper ticks
+        tick_array = np.ascontiguousarray(ticks, dtype=np.float64)
+        cb = plt.colorbar(plot, ax=ax, ticks=tick_array.tolist(),
+                          orientation='vertical', fraction=0.046, pad=0.04)
+        cb.ax.tick_params(labelsize=25)
+        ax.set_axis_off()
 
     plt.tight_layout()
-    plt.savefig(fig_fn, format="eps")
+
+    # Save as both SVG (for editing) and EPS (for publication)
+    svg_fn = os.path.join(output_folder, 'nn_reco_results.svg')
+    eps_fn = os.path.join(output_folder, 'nn_reco_results.eps')
+
+    plt.savefig(svg_fn, format="svg")
+    print(f"  Saved: {svg_fn}")
+
+    plt.savefig(eps_fn, format="eps")
+    print(f"  Saved: {eps_fn}")
+
     plt.close()
-    print(f"  Saved: {fig_fn}")
 
 
 def generate_dict(cfg):
