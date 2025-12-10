@@ -47,11 +47,14 @@ class ConfigDK(Config):
 
         if large_storage and os.path.exists(large_storage):
             print(f'Using large storage directory: {large_storage}')
-            os.makedirs(os.path.join(large_storage, 'MRF_OUTPUT'), exist_ok=True)
-            config['dict_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'dict.mat')
-            config['quantmaps_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'quant_maps.mat')
+            output_dir = os.path.join(large_storage, 'MRF_OUTPUT')
+            os.makedirs(output_dir, exist_ok=True)
+            config['output_folder'] = output_dir
+            config['dict_fn'] = os.path.join(output_dir, 'dict.mat')
+            config['quantmaps_fn'] = os.path.join(output_dir, 'quant_maps.mat')
         else:
             print('Using default OUTPUT_FILES directory')
+            config['output_folder'] = 'OUTPUT_FILES'
             config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
             config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
 
@@ -168,20 +171,19 @@ def main():
     device = initialize_device()
     print(f"Using device: {device}\n")
 
-    # Paths
-    data_folder = 'INPUT_FILES'
-    output_folder = 'OUTPUT_FILES'
-    os.makedirs(output_folder, exist_ok=True)
-
     # ===== STEP 1: Load Config from MATLAB =====
     print("Step 1: Loading configuration from acquired_data.mat...")
     cfg = ConfigDK().get_config()
+
+    # Ensure output folder exists
+    os.makedirs(cfg['output_folder'], exist_ok=True)
     print(f"  B0: {cfg['b0']} T")
     print(f"  Num workers: {cfg['num_workers']}")
     print(f"  Num GPUs: {cfg['num_gpus']}")
     print(f"  CEST pools: {len(cfg['cest_pool'])}")
-    print(f"  Dictionary output: {cfg['dict_fn']}")
-    print(f"  Quant maps output: {cfg['quantmaps_fn']}")
+    print(f"  Output directory: {cfg['output_folder']}")
+    print(f"  Dictionary: {cfg['dict_fn']}")
+    print(f"  Quant maps: {cfg['quantmaps_fn']}")
 
     # Write YAML and sequence files
     write_yaml_dict(cfg)
@@ -210,14 +212,13 @@ def main():
 
     reco_net = train_network(
         train_loader, reco_net, optimizer, device, learning_rate, num_epochs,
-        noise_std, min_param_tensor, max_param_tensor, patience, min_delta
+        noise_std, min_param_tensor, max_param_tensor, patience, min_delta, cfg['output_folder']
     )
     print("")
 
     # ===== STEP 5: Load and Preprocess Acquired Data =====
     print("Step 5: Loading acquired data...")
-    data_fn = os.path.join(data_folder, 'acquired_data.mat')
-    eval_data, c_acq_data, w_acq_data = load_and_preprocess_data(data_fn, sig_n)
+    eval_data, c_acq_data, w_acq_data = load_and_preprocess_data(cfg['acqdata_fn'], sig_n)
     print(f"  Image size: {c_acq_data} x {w_acq_data}\n")
 
     # ===== STEP 6: Inference =====
@@ -234,27 +235,28 @@ def main():
     # Try to load mask from dot product (if available), otherwise create simple mask
     # Note: Neural network doesn't produce dot product metric (only available in dictionary matching)
     # If you previously ran dictionary matching, it will use that mask (threshold typically 0.95)
+    mask_fn = os.path.join(cfg['output_folder'], 'mask.npy')
     try:
-        mask = np.load('OUTPUT_FILES/mask.npy')
-        print("  Using existing mask from OUTPUT_FILES/mask.npy")
+        mask = np.load(mask_fn)
+        print(f"  Using existing mask from {mask_fn}")
     except:
         print("  Creating simple mask (non-zero values)")
         # Simple mask: include pixels with valid parameter estimates
         mask = (quant_maps['fs'] > 0) & (quant_maps['ksw'] > 0)
-        np.save('OUTPUT_FILES/mask.npy', mask)
+        np.save(mask_fn, mask)
         print("  Tip: For better masking, first run dictionary matching to generate mask with dot product > 0.95")
 
-    save_and_plot_results(quant_maps, cfg['quantmaps_fn'], output_folder, mask)
+    save_and_plot_results(quant_maps, cfg['quantmaps_fn'], cfg['output_folder'], mask)
 
     print("\n" + "="*60)
     print("COMPLETED SUCCESSFULLY")
     print("="*60)
     print(f"\nResults saved:")
     print(f"  - {cfg['quantmaps_fn']} (quantitative maps)")
-    print(f"  - {output_folder}/nn_reco_results.svg (editable)")
-    print(f"  - {output_folder}/nn_reco_results.eps (publication)")
-    print(f"  - {output_folder}/checkpoint.pt (trained model)")
-    print(f"  - {output_folder}/mask.npy")
+    print(f"  - {os.path.join(cfg['output_folder'], 'nn_reco_results.svg')} (editable)")
+    print(f"  - {os.path.join(cfg['output_folder'], 'nn_reco_results.eps')} (publication)")
+    print(f"  - {os.path.join(cfg['output_folder'], 'checkpoint.pt')} (trained model)")
+    print(f"  - {mask_fn} (mask)")
     print("="*60 + "\n")
 
 
@@ -293,7 +295,7 @@ def prepare_dataloader(data, batch_size):
 
 
 def train_network(train_loader, reco_net, optimizer, device, learning_rate, num_epochs,
-                  noise_std, min_param_tensor, max_param_tensor, patience, min_delta):
+                  noise_std, min_param_tensor, max_param_tensor, patience, min_delta, output_folder):
     """Train the network"""
     t0 = time.time()
     loss_per_epoch = []
@@ -354,6 +356,7 @@ def train_network(train_loader, reco_net, optimizer, device, learning_rate, num_
     print(f"  Training time: {time.time() - t0:.1f} seconds")
 
     # Save checkpoint
+    checkpoint_fn = os.path.join(output_folder, 'checkpoint.pt')
     torch.save({
         'model_state_dict': reco_net.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
@@ -361,7 +364,8 @@ def train_network(train_loader, reco_net, optimizer, device, learning_rate, num_
         'min_param_tensor': min_param_tensor,
         'max_param_tensor': max_param_tensor,
         'sig_n': reco_net.l1.in_features,
-    }, 'OUTPUT_FILES/checkpoint.pt')
+    }, checkpoint_fn)
+    print(f"  Model checkpoint saved to: {checkpoint_fn}")
 
     return reco_net
 
