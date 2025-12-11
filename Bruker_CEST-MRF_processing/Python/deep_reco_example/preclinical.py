@@ -13,11 +13,10 @@ from cest_mrf.dictionary.generation import generate_mrf_cest_dictionary
 from utils.normalization import normalize_range, un_normalize_range
 from utils.colormaps_dk import b_viridis
 from utils.seed import set_seed
-from sequences_dk import write_sequence_DK
 
 from deep_reco_example.dataset import DatasetMRF
 from deep_reco_example.model import Network
-from deep_reco_example.configs_custom import ConfigDK, setup_sequence_definitions
+from deep_reco_example.configs_custom import ConfigDK
 
 
 def main():
@@ -186,8 +185,8 @@ def save_and_plot_results(quant_maps, mat_fn, mask):
 
     # Custom plot settings
     titles = ['[Glutamate] (mM)', 'k$_{sw}$ (s$^{-1}$)']
-    clim_list = [(0, 120), (0, 500)]
-    tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100)]
+    clim_list = [(0, 40), (0, 8000)]
+    tick_list = [np.arange(0, 41, 10), np.arange(0, 8001, 2000)]
     colormaps = [b_viridis, 'magma']
 
     fig_fn = os.path.join(output_dir, 'deep_reco_preclinical.eps')
