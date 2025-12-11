@@ -14,9 +14,11 @@ from utils.normalization import normalize_range, un_normalize_range
 from utils.colormaps_dk import b_viridis
 from utils.seed import set_seed
 
+from sequences_dk import write_sequence_DK
+
 from deep_reco_example.dataset import DatasetMRF
 from deep_reco_example.model import Network
-from deep_reco_example.configs_custom import ConfigDK
+from deep_reco_example.configs_custom import ConfigDK, setup_sequence_definitions
 
 
 def main():
@@ -216,9 +218,19 @@ def generate_dict(cfg):
     seq_fn = cfg['seq_fn']
     dict_fn = cfg['dict_fn']
 
+    # Write sequence definitions
+    seq_defs = setup_sequence_definitions(cfg)
+    write_sequence_DK(seq_defs=seq_defs, seq_fn=seq_fn)
+
+    # Dictionary generation with 3-pool support
+    if len(cfg['cest_pool'].keys()) > 1:
+        eqvals = [('fs_0', 'fs_1', 0.6666667)]
+    else:
+        eqvals = None
+
     dictionary = generate_mrf_cest_dictionary(seq_fn=seq_fn, param_fn=yaml_fn, dict_fn=dict_fn,
                                               num_workers=cfg['num_workers'],
-                                              axes='xy')  # axes can also be 'z' if no readout is simulated
+                                              axes='xy', equals=eqvals)  # axes can also be 'z' if no readout is simulated
     return preprocess_dict(dictionary)
 
 
