@@ -11,12 +11,13 @@ from cest_mrf.write_scenario import write_yaml_dict
 from cest_mrf.dictionary.generation import generate_mrf_cest_dictionary
 
 from utils.normalization import normalize_range, un_normalize_range
-from utils.colormaps import b_viridis
+from utils.colormaps_dk import b_viridis
 from utils.seed import set_seed
+from sequences_dk import write_sequence_DK
 
 from deep_reco_example.dataset import DatasetMRF
 from deep_reco_example.model import Network
-from deep_reco_example.configs import ConfigPreclinical
+from deep_reco_example.configs_custom import ConfigDK, setup_sequence_definitions
 
 
 def main():
@@ -39,7 +40,7 @@ def main():
     data_folder = r'data'
     output_folder = r'results'
 
-    cfg = ConfigPreclinical().get_config()
+    cfg = ConfigDK().get_config()
 
     write_yaml_dict(cfg)
 
@@ -178,29 +179,53 @@ def evaluate_network(reco_net, data, device, min_param_tensor, max_param_tensor,
 
 def save_and_plot_results(quant_maps, output_folder, mask):
     """Save quantitative maps and generate plots."""
-    os.makedirs(output_folder, exist_ok=True)
+    # Check for large storage directory
+    large_storage = os.environ.get('LARGE_STORAGE_DIR', None)
+
+    if large_storage and os.path.exists(large_storage):
+        print(f'Using large storage directory: {large_storage}')
+        os.makedirs(os.path.join(large_storage, 'MRF_OUTPUT'), exist_ok=True)
+        output_folder = os.path.join(large_storage, 'MRF_OUTPUT')
+    else:
+        os.makedirs(output_folder, exist_ok=True)
+
     # Saving output maps
     out_fn = 'nn_reco_maps_preclinical.mat'
     out_fn = os.path.join(output_folder, out_fn)
     sio.savemat(out_fn, quant_maps)
+    print(f'Saved quantitative maps to: {out_fn}')
 
+    # Custom plot settings
+    titles = ['[Glutamate] (mM)', 'k$_{sw}$ (s$^{-1}$)', 'Dot product']
+    clim_list = [(0, 120), (0, 500), (0.999, 1)]
+    tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.999, 1.0005, 0.0005)]
+    colormaps = [b_viridis, 'magma', 'viridis']
+
+    # Prepare data for plotting
+    plot_data = []
+    if 'fs' in quant_maps:
+        plot_data.append(quant_maps['fs'] * 110e3/3 * mask)
+    if 'ksw' in quant_maps:
+        plot_data.append(quant_maps['ksw'] * mask)
+    if 'dot_prod' in quant_maps:
+        plot_data.append(quant_maps['dot_prod'] * mask)
+
+    # Create figure with appropriate number of subplots
+    n_plots = len(plot_data)
     fig_fn = os.path.join(output_folder, 'deep_reco_preclinical.eps')
-    plt.figure(figsize=(10, 5))
-    # [L-arg] (mM)
-    plt.subplot(121)
-    plt.imshow(quant_maps['fs'] * 110e3/3 * mask, cmap=b_viridis, clim=(0, 120))
-    plt.colorbar(ticks=np.arange(0, 121, 20), fraction=0.046, pad=0.04)
-    plt.title('[L-arg] (mM)')
-    plt.axis("off")
-    # ksw (Hz)
-    plt.subplot(122)
-    plt.imshow(quant_maps['ksw'] * mask, cmap='magma', clim=(0, 500))
-    plt.colorbar(ticks=np.arange(0, 501, 100), fraction=0.046, pad=0.04)
-    plt.title('k$_{sw}$ (s$^{-1}$)')
-    plt.axis("off")
+    plt.figure(figsize=(5 * n_plots, 5))
+
+    for i, data in enumerate(plot_data):
+        plt.subplot(1, n_plots, i + 1)
+        plt.imshow(data, cmap=colormaps[i], clim=clim_list[i])
+        plt.colorbar(ticks=tick_list[i], fraction=0.046, pad=0.04)
+        plt.title(titles[i])
+        plt.axis("off")
+
     plt.tight_layout()
     plt.savefig(fig_fn, format="eps")
     plt.close()
+    print(f'Saved figure to: {fig_fn}')
 
 
 def generate_dict(cfg):
