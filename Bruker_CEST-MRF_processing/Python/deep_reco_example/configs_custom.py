@@ -9,11 +9,21 @@ class Config:
 class ConfigDK(Config):
     def __init__(self):
         config = {}
+        large_storage = os.environ.get('LARGE_STORAGE_DIR', None)
+
+        # Set output paths based on large storage availability
+        if large_storage and os.path.exists(large_storage):
+            print(f'Using large storage directory: {large_storage}')
+            os.makedirs(os.path.join(large_storage, 'MRF_OUTPUT'), exist_ok=True)
+            config['dict_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'dict.mat')
+            config['quantmaps_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'quant_maps.mat')
+        else:
+            config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
+            config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
+
         config['yaml_fn'] = 'OUTPUT_FILES/scenario.yaml'
         config['seq_fn'] = 'OUTPUT_FILES/acq_protocol.seq'
-        config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
         config['acqdata_fn'] = 'INPUT_FILES/acquired_data.mat'
-        config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
 
         # Modified by DK to pull in dictpars from acquired_data.mat
         dp = {}
@@ -72,7 +82,7 @@ class ConfigDK(Config):
             config['mt_pool']['k'] = dp['mt_k']
             config['mt_pool']['dw'] = dp['mt_dw']
             config['mt_pool']['f'] = dp['mt_f']
-            config['mt_pool']['lineshape'] = dp['mt_lineshape']
+            config['mt_pool']['lineshape'] = str(dp['mt_lineshape'])
 
         # Fill initial magnetization info
         # this is important now for the mrf simulation! For the regular pulseq-cest
