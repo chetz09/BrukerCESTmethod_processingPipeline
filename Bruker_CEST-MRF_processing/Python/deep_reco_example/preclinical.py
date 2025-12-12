@@ -56,10 +56,8 @@ def main():
     quant_maps = evaluate_network(reco_net, eval_data, device, min_param_tensor, max_param_tensor,
                                   c_acq_data=c_acq_data, w_acq_data=w_acq_data)
 
-    # Create signal-based mask for phantom data
-    acquired_raw = sio.loadmat(data_fn)['acquired_data'].astype(np.float)
-    signal_strength = np.mean(np.abs(acquired_raw), axis=0)
-    mask = signal_strength > (0.15 * np.max(signal_strength))
+    # Load mask from MRF matching (dp-based)
+    mask = np.load('mask.npy')
 
     save_and_plot_results(quant_maps, cfg['quantmaps_fn'], mask)
 
