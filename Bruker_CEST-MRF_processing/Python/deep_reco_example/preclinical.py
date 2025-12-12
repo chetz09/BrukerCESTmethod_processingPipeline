@@ -38,9 +38,6 @@ def main():
     device = initialize_device()
     print(f"Using device: {device}")
 
-    data_folder = r'data'
-    output_folder = r'results'
-
     cfg = ConfigDK().get_config()
 
     write_yaml_dict(cfg)
@@ -54,13 +51,13 @@ def main():
     reco_net = train_network(train_loader, reco_net, optimizer, device, learning_rate, num_epochs, noise_std,
                              min_param_tensor, max_param_tensor, patience, min_delta)
 
-    data_fn = os.path.join(data_folder, 'acquired_data.mat')
+    data_fn = cfg['acqdata_fn']
     eval_data, c_acq_data, w_acq_data = load_and_preprocess_data(data_fn, sig_n)
     quant_maps = evaluate_network(reco_net, eval_data, device, min_param_tensor, max_param_tensor,
                                   c_acq_data=c_acq_data, w_acq_data=w_acq_data)
 
-    # load mask from created using dot-product values
-    mask = np.load('../dot_prod_example/mask.npy')
+    # Create mask (no masking - show all pixels)
+    mask = np.ones((c_acq_data, w_acq_data))
     save_and_plot_results(quant_maps, cfg['quantmaps_fn'], mask)
 
 
