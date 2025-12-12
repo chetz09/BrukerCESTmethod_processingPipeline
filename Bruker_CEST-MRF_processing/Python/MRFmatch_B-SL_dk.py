@@ -142,7 +142,7 @@ def visualize_and_save_results(quant_maps, mat_fn):
     sio.savemat(mat_fn, quant_maps)
     print('quant_maps.mat saved')
 
-    mask = quant_maps['dp'] > 0.99974
+    mask = quant_maps['dp'] > 0.95  # Lowered from 0.99974 for better phantom coverage
     mask_fn = 'mask.npy'
     np.save(mask_fn, mask)
 
