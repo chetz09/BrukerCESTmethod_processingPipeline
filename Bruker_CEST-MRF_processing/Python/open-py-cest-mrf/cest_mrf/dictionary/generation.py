@@ -9,7 +9,8 @@ from ..simulation.simulate import simulate_mrf
 
 import math
 from scipy.io import savemat
-
+import h5py
+import numpy as np
 
 import tqdm
 
@@ -198,6 +199,29 @@ def generate_mrf_cest_dictionary(seq_fn=None,
     dictionary = new_dict
     dictionary['sig'] = combined_signals
 
-    savemat(dict_fn, dictionary)
+    # Save dictionary using HDF5 format for large files (>2GB)
+    # MATLAB v5 format has 2GB limit, HDF5 (v7.3) has no limit
+    try:
+        print(f"Attempting to save dictionary to {dict_fn}...")
+        # Try scipy savemat first (faster for small files)
+        savemat(dict_fn, dictionary)
+        print(f"✓ Dictionary saved successfully using MATLAB v5 format")
+    except Exception as e:
+        if "too large" in str(e).lower():
+            print(f"⚠ Dictionary too large for MATLAB v5 format (2GB limit)")
+            print(f"  Saving using HDF5 format (MATLAB v7.3 compatible)...")
+
+            # Use HDF5 format (no size limit, MATLAB v7.3 compatible)
+            with h5py.File(dict_fn, 'w') as f:
+                for key, value in dictionary.items():
+                    if isinstance(value, np.ndarray):
+                        f.create_dataset(key, data=value, compression='gzip', compression_opts=4)
+                    else:
+                        # Handle scalar values
+                        f.create_dataset(key, data=value)
+            print(f"✓ Dictionary saved successfully using HDF5 format")
+            print(f"  Load in MATLAB with: load('{dict_fn}', '-v7.3')")
+        else:
+            raise  # Re-raise if it's a different error
 
     return dictionary
