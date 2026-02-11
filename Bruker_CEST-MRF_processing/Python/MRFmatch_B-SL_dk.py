@@ -22,11 +22,22 @@ class Config:
 class ConfigDK(Config):
     def __init__(self):
         config = {}
+        large_storage = os.environ.get('LARGE_STORAGE_DIR', None)
+
+        # Set output paths based on large storage availability
+        if large_storage and os.path.exists(large_storage):
+            print(f'Using large storage directory: {large_storage}')
+            os.makedirs(os.path.join(large_storage, 'MRF_OUTPUT'), exist_ok=True)
+            config['dict_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'dict.mat')
+            config['quantmaps_fn'] = os.path.join(large_storage, 'MRF_OUTPUT', 'quant_maps.mat')
+        else:
+            print('Using default OUTPUT_FILES directory')
+            config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
+            config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
+
         config['yaml_fn'] = 'OUTPUT_FILES/scenario.yaml'
         config['seq_fn'] = 'OUTPUT_FILES/acq_protocol.seq'
-        config['dict_fn'] = 'OUTPUT_FILES/dict.mat'
         config['acqdata_fn'] = 'INPUT_FILES/acquired_data.mat'
-        config['quantmaps_fn'] = 'OUTPUT_FILES/quant_maps.mat'
 
         # Modified by DK to pull in dictpars from acquired_data.mat
         dp = {}
@@ -37,38 +48,37 @@ class ConfigDK(Config):
             elif isinstance(dp_import[name].flatten()[0].flatten()[0],np.integer): #store as single integer value
                 dp[name]=int(dp_import[name].flatten()[0].flatten()[0])
             else:
-                dp[name]=float(dp_import[name].flatten()[0].flatten()[0]) 
+                # Try to convert to float, but if it's a string, keep as string
+                try:
+                    dp[name]=float(dp_import[name].flatten()[0].flatten()[0])
+                except (ValueError, TypeError):
+                    # It's a string (like 'SuperLorentzian') - keep as string
+                    val = dp_import[name].flatten()[0].flatten()[0]
+                    if isinstance(val, str):
+                        dp[name] = val
+                    elif hasattr(val, 'decode'):  # Handle byte strings
+                        dp[name] = val.decode('utf-8')
+                    else:
+                        dp[name] = str(val)
 
         # Water_pool
         config['water_pool'] = {}
         config['water_pool']['t1'] = dp['water_t1']
-        # config['water_pool']['t1'] = config['water_pool']['t1'].tolist()  # vary t1
         config['water_pool']['t2'] = dp['water_t2']
-        # config['water_pool']['t2'] = config['water_pool']['t2'].tolist()  # vary t2
         config['water_pool']['f'] = dp['water_f']
 
-        # Solute pool
-        config['cest_pool'] = {}
-        config['cest_pool']['Amine'] = {}
-        config['cest_pool']['Amine']['t1'] = dp['cest_amine_t1']
-        config['cest_pool']['Amine']['t2'] = dp['cest_amine_t2']
-        config['cest_pool']['Amine']['k'] = dp['cest_amine_k']
-        config['cest_pool']['Amine']['dw'] = dp['cest_amine_dw']
-        config['cest_pool']['Amine']['f'] = dp['cest_amine_f']
-        # config['cest_pool']['Amine']['f'] = config['cest_pool']['Amine']['f'].tolist()
-        
-        # Additional CEST pool ("MT")
-        
-        # This is for treating MT as an additional CEST pool
-        # if 'cest_mt_f' in dp.keys():
-        #    config['cest_pool']['MT'] = {}
-        #    config['cest_pool']['MT']['t1'] = dp['cest_mt_t1']
-        #    config['cest_pool']['MT']['t2'] = dp['cest_mt_t2']
-        #    config['cest_pool']['MT']['k'] = dp['cest_mt_k']
-        #    config['cest_pool']['MT']['dw'] = dp['cest_mt_dw']
-        #    config['cest_pool']['MT']['f'] = dp['cest_mt_f']            
-        # This is for treating MT as an MT pool
-        if 'mt_f' in dp.keys():    
+        # Solute pool (optional - only if CEST parameters present in data)
+        if 'cest_amine_f' in dp:
+            config['cest_pool'] = {}
+            config['cest_pool']['Amine'] = {}
+            config['cest_pool']['Amine']['t1'] = dp['cest_amine_t1']
+            config['cest_pool']['Amine']['t2'] = dp['cest_amine_t2']
+            config['cest_pool']['Amine']['k'] = dp['cest_amine_k']
+            config['cest_pool']['Amine']['dw'] = dp['cest_amine_dw']
+            config['cest_pool']['Amine']['f'] = dp['cest_amine_f']
+
+        # MT pool (optional)
+        if 'mt_f' in dp:
             config['mt_pool'] = {}
             config['mt_pool']['t1'] = dp['mt_t1']
             config['mt_pool']['t2'] = dp['mt_t2']
@@ -79,7 +89,7 @@ class ConfigDK(Config):
 
         # Fill initial magnetization info
         # this is important now for the mrf simulation! For the regular pulseq-cest
-        # simulation, we usually assume athat the magnetization reached a steady
+        # simulation, we usually assume that the magnetization reached a steady
         # state after the readout, which means we can set the magnetization vector
         # to a specific scale, e.g. 0.5. This is because we do not simulate the
         # readout there. For mrf we include the readout in the simulation, which
@@ -113,14 +123,14 @@ def setup_sequence_definitions(cfg):
             seq_defs[name]=int(sd_import[name].flatten()[0].flatten()[0])
         else:
             seq_defs[name]=float(sd_import[name].flatten()[0].flatten()[0])
-            
+
     # DK edit 8/26/24: Add in 'SLflag' if not imported above
     if not 'SLflag' in seq_defs.keys():
         seq_defs['SLflag']=seq_defs['offsets_ppm'] < [1e-3]*seq_defs['num_meas']
     # DK edit 9/4/24: Add in 'SLFA' if not imported above
     if not 'SLFA' in seq_defs.keys():
         seq_defs['SLFA']=seq_defs['excFA']    #use excitation tip angles, since that's what it was for a while unfortunately....
-        
+
     seq_defs['B0'] = cfg['b0']  # B0 [T]
     seq_defs['seq_id_string'] = os.path.splitext(cfg['seq_fn'])[1][1:]  # unique seq id
 
@@ -136,30 +146,51 @@ def generate_quant_maps(acq_fn, dict_fn):
 
 def visualize_and_save_results(quant_maps, mat_fn):
     """Visualize quant maps and save them as eps."""
-    # os.makedirs(output_f, exist_ok=True)
-
-    # mat_fn = os.path.join(output_f, 'quant_maps.mat')
     sio.savemat(mat_fn, quant_maps)
     print('quant_maps.mat saved')
 
+    output_dir = os.path.dirname(mat_fn) if os.path.dirname(mat_fn) else 'OUTPUT_FILES'
+
     mask = quant_maps['dp'] > 0.99974
-    mask_fn = 'mask.npy'
+    mask_fn = os.path.join(output_dir, 'mask.npy')
     np.save(mask_fn, mask)
 
-    fig_fn = 'OUTPUT_FILES/dot_product_results.eps'
-    fig, axes = plt.subplots(1, 3, figsize=(30, 25))
-    color_maps = [b_viridis, 'magma', 'magma']
-    data_keys = ['fs', 'ksw', 'dp']
-    titles = ['[L-arg] (mM)', 'k$_{sw}$ (s$^{-1}$)', 'Dot product']
-    clim_list = [(0, 120), (0, 500), (0.999, 1)]
-    tick_list = [np.arange(0, 140, 20), np.arange(0, 600, 100), np.arange(0.999, 1.0005, 0.0005)]
+    fig_fn = os.path.join(output_dir, 'dot_product_results.eps')
 
-    for ax, color_map, key, title, clim, ticks in zip(axes.flat, color_maps, data_keys, titles, clim_list, tick_list):
-        vals = quant_maps[key] * (key == 'fs' and 110e3 / 3 or 1) * mask
-        plot = ax.imshow(vals, cmap=color_map)
-        plot.set_clim(*clim)
-        ax.set_title(title, fontsize=25)
-        cb = plt.colorbar(plot, ax=ax, ticks=ticks, orientation='vertical', fraction=0.046, pad=0.04)
+    # Build visualization panels based on available maps
+    has_cest = 'fs' in quant_maps
+    has_mt = 'fm' in quant_maps
+
+    panels = []
+    if has_cest:
+        panels.append({'key': 'fs', 'title': '[L-arg] (mM)', 'cmap': b_viridis,
+                        'clim': (0, 120), 'ticks': np.arange(0, 140, 20),
+                        'scale': 110e3 / 3})
+        panels.append({'key': 'ksw', 'title': 'k$_{sw}$ (s$^{-1}$)', 'cmap': 'magma',
+                        'clim': (0, 500), 'ticks': np.arange(0, 600, 100),
+                        'scale': 1})
+    if has_mt:
+        panels.append({'key': 'fm', 'title': 'MT fraction', 'cmap': 'viridis',
+                        'clim': (0, 0.05), 'ticks': np.arange(0, 0.06, 0.01),
+                        'scale': 1})
+        panels.append({'key': 'kmw', 'title': 'k$_{mw}$ (s$^{-1}$)', 'cmap': 'magma',
+                        'clim': (0, 100), 'ticks': np.arange(0, 120, 20),
+                        'scale': 1})
+    panels.append({'key': 'dp', 'title': 'Dot product', 'cmap': 'magma',
+                    'clim': (0.999, 1), 'ticks': np.arange(0.999, 1.0005, 0.0005),
+                    'scale': 1})
+
+    n_panels = len(panels)
+    fig, axes = plt.subplots(1, n_panels, figsize=(10 * n_panels, 25))
+    if n_panels == 1:
+        axes = [axes]
+
+    for ax, panel in zip(axes.flat, panels):
+        vals = quant_maps[panel['key']] * panel['scale'] * mask
+        plot = ax.imshow(vals, cmap=panel['cmap'])
+        plot.set_clim(*panel['clim'])
+        ax.set_title(panel['title'], fontsize=25)
+        cb = plt.colorbar(plot, ax=ax, ticks=panel['ticks'], orientation='vertical', fraction=0.046, pad=0.04)
         cb.ax.tick_params(labelsize=25)
         ax.set_axis_off()
 
@@ -170,9 +201,6 @@ def visualize_and_save_results(quant_maps, mat_fn):
 
 
 def main():
-    # data_f = 'data'
-    # output_f = 'results'
-
     cfg = ConfigDK().get_config()
 
     # Write configuration and sequence files
@@ -181,10 +209,12 @@ def main():
     write_sequence_DK(seq_defs=seq_defs, seq_fn=cfg['seq_fn'])
 
     # Dictionary generation
-    if len(cfg['cest_pool'].keys())>1:
+    # eqvals constrains two CEST pools to have related fs values;
+    # only needed when there are multiple CEST pools
+    if 'cest_pool' in cfg and len(cfg['cest_pool'].keys()) > 1:
         eqvals=[('fs_0','fs_1',0.6666667)]
     else:
-        eqvals=None        
+        eqvals=None
     dictionary = generate_mrf_cest_dictionary(seq_fn=cfg['seq_fn'], param_fn=cfg['yaml_fn'], dict_fn=cfg['dict_fn'],
                                  num_workers=cfg['num_workers'], axes='xy', equals=eqvals)
 

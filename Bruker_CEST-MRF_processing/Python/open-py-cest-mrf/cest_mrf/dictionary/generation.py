@@ -21,7 +21,7 @@ def key_map(key):
     mapping = {'tw1': 't1w', 'tw2': 't2w', 'fww': 'fw',
                'ts1': 't1s', 'ts2': 't2s', 'fss': 'fs', 'ksw': 'ksw',
                'tm1': 't1m', 'tm2': 't2m', 'fmm': 'fm', 'lmm': 'lineshape',
-               'dsw': 'dsw', 'dmw': 'dmw', 'kmw': 'kss'}
+               'dsw': 'dsw', 'dmw': 'dmw', 'kmw': 'kmw'}
     for old_key, new_key in mapping.items():
         if key.startswith(old_key):
             return key.replace(old_key, new_key)
@@ -34,7 +34,7 @@ def inverse_key_map(key):
     inverse_mapping = {v: k for k, v in {'tw1': 't1w', 'tw2': 't2w', 'fww': 'fw',
                                          'ts1': 't1s', 'ts2': 't2s', 'fss': 'fs', 'ksw': 'ksw',
                                          'tm1': 't1m', 'tm2': 't2m', 'fmm': 'fm', 'lmm': 'lineshape',
-                                         'dsw': 'dsw', 'dmw': 'dmw', 'kmw': 'kss'}.items()}
+                                         'dsw': 'dsw', 'dmw': 'dmw', 'kmw': 'kmw'}.items()}
     for new_key, old_key in inverse_mapping.items():
         if key.startswith(new_key):
             return key.replace(new_key, old_key)
