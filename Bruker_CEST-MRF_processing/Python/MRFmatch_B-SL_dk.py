@@ -55,7 +55,7 @@ class ConfigDK(Config):
                     # It's a string (like 'SuperLorentzian') - keep as string
                     val = dp_import[name].flatten()[0].flatten()[0]
                     if isinstance(val, str):
-                        dp[name] = val
+                        dp[name] = str(val)
                     elif hasattr(val, 'decode'):  # Handle byte strings
                         dp[name] = val.decode('utf-8')
                     else:
