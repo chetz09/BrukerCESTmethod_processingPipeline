@@ -163,13 +163,19 @@ def visualize_and_save_results(quant_maps, mat_fn):
 
     panels = []
     if has_cest:
-        panels.append({'key': 'fs', 'title': '[L-arg] (mM)', 'cmap': b_viridis,
-                        'clim': (0, 120), 'ticks': np.arange(0, 140, 20),
+        panels.append({'key': 'fs', 'title': 'Glutamate (mM)', 'cmap': b_viridis,
+                        'clim': (0, 30), 'ticks': np.arange(0, 35, 5),
                         'scale': 110e3 / 3})
         panels.append({'key': 'ksw', 'title': 'k$_{sw}$ (s$^{-1}$)', 'cmap': 'magma',
                         'clim': (0, 500), 'ticks': np.arange(0, 600, 100),
                         'scale': 1})
     if has_mt:
+        panels.append({'key': 't1m', 'title': 'T$_{1,MT}$ (s)', 'cmap': 'inferno',
+                        'clim': (0, 1.0), 'ticks': np.arange(0, 1.2, 0.2),
+                        'scale': 1})
+        panels.append({'key': 't2m', 'title': 'T$_{2,MT}$ ($\mu$s)', 'cmap': 'inferno',
+                        'clim': (0, 30), 'ticks': np.arange(0, 35, 5),
+                        'scale': 1e6})
         panels.append({'key': 'fm', 'title': 'MT fraction', 'cmap': 'viridis',
                         'clim': (0, 0.05), 'ticks': np.arange(0, 0.06, 0.01),
                         'scale': 1})
