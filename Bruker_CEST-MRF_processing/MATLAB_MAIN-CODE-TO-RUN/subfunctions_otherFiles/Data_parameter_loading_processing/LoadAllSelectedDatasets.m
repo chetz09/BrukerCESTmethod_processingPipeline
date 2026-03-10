@@ -122,6 +122,70 @@ if specifiedflg.zSpec
         end
     end   
     disp('Z-spectroscopic imaging data loading and processing complete!')
+
+    %% REX MAP: (1/Z - 1) * R1 * cos^2(theta)
+    % Rex isolates exchange-dependent relaxation. Requires both z-spec + T1 map.
+    % cos^2(theta) = DeltaOmega^2 / (omega1^2 + DeltaOmega^2)
+    %   omega1     [rad/s] = 2*pi * 42.577 * satpwr_uT
+    %   DeltaOmega [rad/s] = 2*pi * omega0_MHz * ppm
+    if specifiedflg.T1map
+        disp('Z-spectroscopic imaging data: computing Rex = (1/Z-1)*R1*cos^2(theta)...')
+        omega1_rads   = 2*pi * 42.577 * info.zSpec.satpwr_uT;         % scalar [rad/s]
+        deltaOmega    = 2*pi * info.zSpec.omega_0 .* img.zSpec.ppm;   % [1 x nppm] [rad/s]
+        cos2theta     = deltaOmega.^2 ./ (omega1_rads^2 + deltaOmega.^2); % [1 x nppm]
+        cos2theta(~isfinite(cos2theta)) = 0;    % zero at ppm=0
+
+        R1map = 1 ./ double(img.other.t1wIR);  % [nx x ny] [s^-1]
+        R1map(~isfinite(R1map)) = 0;            % mask voxels where T1=0
+
+        nppm      = length(img.zSpec.ppm);
+        R1map3D   = repmat(R1map,    [1, 1, nppm]);
+        cos2theta3D = repmat(reshape(cos2theta, 1, 1, nppm), ...
+                             [size(img.zSpec.img,1), size(img.zSpec.img,2), 1]);
+
+        RexImg = (1 ./ double(img.zSpec.img) - 1) .* R1map3D .* cos2theta3D;
+        RexImg(~isfinite(RexImg)) = 0;
+        img.zSpec.RexImg = RexImg;
+        disp('Rex map computation complete!')
+
+        %% REX SPECTRUM FITTING (same pools as Z-spectrum, no 1-Z inversion)
+        disp('Z-spectroscopic imaging data: fitting Rex spectra voxelwise...')
+        zppars_rex.pools    = {'water','NOE','MT','amide'};
+        zppars_rex.peaktype = 'Pseudo-Voigt';
+        zppars_rex.water1st = false;
+
+        % Derive SNR mask from processed zImg (masked voxels are all-zero)
+        Thmask_rex      = any(double(img.zSpec.img) ~= 0, 3);
+        ThmaskIdxVec_rex = find(reshape(Thmask_rex, [], 1));
+
+        % Reshape and select unmasked voxels
+        RexSelVox = reshape(RexImg, prod(size(RexImg,[1,2])), []);
+        RexSelVox = RexSelVox(ThmaskIdxVec_rex, :);
+
+        % Fit Rex spectra directly (invertflg=false: no 1-Z inversion)
+        [RexFittedAmpls, RexFittedPeaksIndiv, RexFittedPeaksAll] = ...
+            fitAllZspec(img.zSpec.ppm, RexSelVox, zppars_rex, false);
+
+        % Fill in fitted amplitude maps and peak-curve maps
+        nPools_rex = numel(zppars_rex.pools);
+        for ii = 1:nPools_rex
+            pool = zppars_rex.pools{ii};
+            img.zSpec.RexFitImg.(pool) = zeros(img.zSpec.size);
+            img.zSpec.RexFitImg.(pool)(ThmaskIdxVec_rex) = RexFittedAmpls(ii,:);
+
+            RexPeakVec = zeros(prod(size(img.zSpec.img,[1,2])), nppm);
+            for jj = 1:numel(ThmaskIdxVec_rex)
+                RexPeakVec(ThmaskIdxVec_rex(jj),:) = RexFittedPeaksIndiv(ii,jj,:);
+            end
+            img.zSpec.RexPeakFits.(pool) = reshape(RexPeakVec, size(RexImg));
+        end
+        RexAllVec = zeros(prod(size(img.zSpec.img,[1,2])), nppm);
+        for ii = 1:numel(ThmaskIdxVec_rex)
+            RexAllVec(ThmaskIdxVec_rex(ii),:) = RexFittedPeaksAll(ii,:);
+        end
+        img.zSpec.RexPeakFits.all = reshape(RexAllVec, size(RexImg));
+        disp('Rex spectrum fitting complete!')
+    end
 end
 
 

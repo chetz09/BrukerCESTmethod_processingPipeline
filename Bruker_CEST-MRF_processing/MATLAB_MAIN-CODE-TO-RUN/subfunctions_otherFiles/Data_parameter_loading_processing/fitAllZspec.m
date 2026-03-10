@@ -31,7 +31,13 @@
 %                           dimension.
 %
 function [fittedAmpls,fittedPeaksIndiv,fittedPeaksAll]=...
-    fitAllZspec(ppm,zSpec,zppars)
+    fitAllZspec(ppm,zSpec,zppars,invertflg)
+% invertflg (optional, default true): when true applies 1-Z inversion before
+%   fitting (standard Z-spectrum mode). When false, fits the input data
+%   directly -- use for Rex spectra which are already in peak form.
+if nargin < 4
+    invertflg = true;
+end
 % Perform B0 correction, if specified
 %DK: TO DO!
 
@@ -64,7 +70,11 @@ water1stflg=zppars.water1st;
 % Start parallel loop for voxelwise fitting 
 tic;
 parfor ii=1:size(zSpec,1)
-    zfit=1-squeeze(zSpec(ii,:));
+    if invertflg
+        zfit=1-squeeze(zSpec(ii,:));  % standard Z-spectrum: flip dips to peaks
+    else
+        zfit=double(squeeze(zSpec(ii,:)));  % Rex/inverse-Z: already in peak form
+    end
 
 %     % If zppars.phaseMTR=true, first add linear phase to the 
 %     % spectrum such that the signal amplitudes at each end of the 

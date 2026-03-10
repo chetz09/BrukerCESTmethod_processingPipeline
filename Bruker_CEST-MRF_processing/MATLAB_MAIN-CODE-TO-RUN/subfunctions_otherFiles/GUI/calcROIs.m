@@ -166,6 +166,25 @@ if specifiedflg.zSpec
         end
         img.zSpec.avgZspec.all.fitSpec(iii,:)=1-peaksAll(iii,:);
     end
+
+    % Compute ROI-averaged Rex spectrum and fit the same pools (if Rex data exists)
+    if isfield(img.zSpec,'RexImg')
+        for iii=1:nROI
+            RexReshape=reshape(img.zSpec.RexImg,prod(size(img.zSpec.RexImg,[1,2])),[]);
+            maskReshape=reshape(roi(iii).mask,prod(size(roi(iii).mask,[1,2])),[]);
+            img.zSpec.avgZspec.Rex.spec(iii,:)=mean(double(RexReshape(maskReshape,:)),1);
+        end
+        [RexAmpls,RexPeaksIndiv,RexPeaksAll]=fitAllZspec(img.zSpec.ppm,...
+            img.zSpec.avgZspec.Rex.spec,zppars,false);
+        for iii=1:nROI
+            for jjj=1:numel(zppars.pools)
+                pool=zppars.pools{jjj};
+                roi(iii).avgZspec.Rex.(pool)=RexAmpls(jjj,iii);
+                img.zSpec.avgZspec.Rex.(pool).fitSpec(iii,:)=RexPeaksIndiv(jjj,iii,:);
+            end
+            img.zSpec.avgZspec.Rex.fitAll(iii,:)=RexPeaksAll(iii,:);
+        end
+    end
 end
 
 
